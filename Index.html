@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- התאמה למסכים ניידים -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_top">
+    <title>דרך ההייטק בע״מ ח.פ 516045564</title>
+    <!-- גופן מודרני -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <!-- טעינת Google Charts (אם נדרש לגרפים) -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script type="text/javascript">
+      google.charts.load('current', {packages:['corechart']});
+    </script>
+    <style>
+      body {
+        direction: rtl;
+        font-family: 'Roboto', sans-serif;
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(135deg, #1f1c2c, #928dab);
+        color: #fff;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      header {
+        text-align: center;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      header h1 {
+        font-size: 2.2em;
+        margin: 10px 0 0;
+      }
+      .company-logo {
+        max-width: 100px;
+        margin-bottom: 10px;
+      }
+      .section {
+        background: rgba(0,0,0,0.6);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .section h2 {
+        margin-top: 0;
+        font-size: 1.5em;
+        border-bottom: 1px solid rgba(255,255,255,0.3);
+        padding-bottom: 10px;
+      }
+      label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      input[type="month"],
+      input[type="number"],
+      input[type="date"],
+      input[type="text"],
+      select {
+        width: 100%;
+        max-width: 300px;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 1em;
+      }
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        background: #ff9800;
+        color: #fff;
+        font-size: 1em;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      button:disabled {
+        background: #888;
+        cursor: not-allowed;
+      }
+      button:hover:not(:disabled) {
+        background: #e68900;
+      }
+      #loadingSpinner {
+        display: none;
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      #results, #compareResults, #pastResults, #annualBranchResults {
+        margin-top: 20px;
+        background: #fff;
+        color: #000;
+        padding: 15px;
+        border-radius: 4px;
+      }
+      /* אזור גרף */
+      #chartContainer {
+        width: 100%;
+        height: 400px;
+        background: #fff;
+        color: #000;
+        margin-top: 20px;
+        border-radius: 4px;
+        display: none;
+      }
+      /* הודעת Toast */
+      #notification {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        color: #ff9800;
+        padding: 15px;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: none;
+      }
+      @media (max-width: 600px) {
+        .container { padding: 10px; }
+        header h1 { font-size: 1.6em; }
+        .company-logo { max-width: 80px; }
+        input, select, button { width: 100%; margin-bottom: 10px; }
+        #chartContainer { height: 300px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <img src="https://static.wixstatic.com/media/85929f_9025e84d08eb4a4d9aafc66d74cbc29c~mv2.jpeg/v1/fill/w_1080,h_1080,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo_haitech-09_converted.jpeg" alt="לוגו דרך ההייטק" class="company-logo">
+        <h1>דרך ההייטק בע״מ ח.פ 516045564</h1>
+      </header>
+      
+      <!-- אזור התחזית העתידית (יומי, שבועי, חודשי) -->
+      <div class="section" id="forecastSection">
+        <h2>חישוב תחזית עתידית</h2>
+        <label>בחר חודש (עבור שבועי/חודשי):
+          <input type="month" id="monthInput" value="2025-04">
+        </label>
+        <label>מספר שבוע (1-5):
+          <input type="number" id="weekInput" min="1" max="5" value="1">
+        </label>
+        <label>סווג לפי (עבור שבועי/חודשי):
+          <select id="sivugSelect">
+            <option value="cycle">לפי פעילות (סוג המחזור)</option>
+            <option value="lesson">לפי סוג ההדרכה</option>
+            <option value="branch">לפי סניף במחזור</option>
+          </select>
+        </label>
+        <button id="weeklyBtn" onclick="runWeeklyCalc()">הצג תחזית שבועית</button>
+        <button id="monthlyBtn" onclick="runMonthlyCalc()">הצג תחזית חודשית</button>
+        <hr>
+        <label>בחר תאריך ספציפי (עבור יומי):
+          <input type="date" id="dayInput" value="2025-04-10">
+        </label>
+        <button id="dailyBtn" onclick="runDailyCalc()">הצג תחזית יומית</button>
+        <div id="loadingSpinner">טוען נתונים... אנא המתן</div>
+        <div id="results"></div>
+        <button id="chartBtn" onclick="renderForecastChart()">הצג גרף</button>
+        <div id="chartContainer"></div>
+      </div>
+      
+      <!-- אזור ייצוא דוח התחזית העתידית -->
+      <div class="section" id="exportSection">
+        <h2>ייצוא דוח תחזית עתידית</h2>
+        <label>שם הדוח (אם ריק, ייבנה אוטומטית לפי הבחירה):
+          <input type="text" id="reportName" placeholder="לדוגמה: תחזית חודשית 2025-04 (branch)">
+        </label>
+        <button id="exportBtn" onclick="exportForecast()">ייצא לדוח בגוגל שיטס</button>
+      </div>
+      
+      <!-- אזור חישוב נתוני פגישות עבר -->
+      <div class="section" id="pastSection">
+        <h2>חישוב נתוני פגישות עבר</h2>
+        <label>בחר תאריך התחלה:
+          <input type="date" id="pastStartDate" value="2025-03-01">
+        </label>
+        <label>בחר תאריך סיום:
+          <input type="date" id="pastEndDate" value="2025-03-31">
+        </label>
+        <label>סיווג לפי:
+          <select id="pastSivugSelect">
+            <option value="cycle">לפי פעילות (סוג המחזור)</option>
+            <option value="lesson">לפי סוג ההדרכה</option>
+            <option value="branch">לפי סניף במחזור</option>
+          </select>
+        </label>
+        <button id="pastCalcBtn" onclick="runPastCalc()">הצג נתוני פגישות עבר</button>
+        <div id="pastResults"></div>
+        <button id="pastExportBtn" onclick="exportPastForecast()">ייצא לדוח פגישות עבר בגוגל שיטס</button>
+      </div>
+      
+      <!-- אזור השוואת חודשים לפי סניף -->
+      <div class="section" id="compareSection">
+        <h2>השוואת חודשים לפי סניף</h2>
+        <label>בחר חודש ראשון:
+          <input type="month" id="compareMonth1" value="2025-04">
+        </label>
+        <label>בחר חודש שני:
+          <input type="month" id="compareMonth2" value="2025-05">
+        </label>
+        <button id="compareBtn" onclick="runCompare()">השווה חודשים לפי סניף</button>
+        <div id="compareResults"></div>
+        <button id="exportCompareBtn" onclick="exportCompare()">ייצא דוח השוואה</button>
+      </div>
+
+      <div class="section" id="analysisSection">
+        <h2>ניתוח השוואת חודשים לפי סניף</h2>
+        <button id="analyzeBtn" onclick="analyzeCompare()">נתח את הטבלה</button>
+        <div id="analysisResults"></div>
+      </div>
+
+      
+      <div class="section" id="branchCalculationSection">
+          <h2>חישוב הכנסה שנתית לפי סניף</h2>
+          <label>בחר סניף:
+            <select id="branchSelect"></select>
+          </label>
+          <label>בחר תאריך התחלה:
+            <input type="date" id="yearlyStartDate" value="2024-09-01">
+          </label>
+          <label>בחר תאריך סיום:
+            <input type="date" id="yearlyEndDate" value="2025-06-30">
+          </label>
+          <button id="annualBranchBtn" onclick="runAnnualBranchCalc()">חשב הכנסה שנתית</button>
+          <div id="annualBranchResults"></div>
+      </div>
+
+    </div>
+    
+    <!-- Toast notification -->
+    <div id="notification"></div>
+    
+    <script>
+      var forecastResult = null;
+      var compareResult = null;
+      var pastResult = null;
+      var forecastType = ""; // "weekly", "monthly", "daily"
+      
+      function showNotification(messageHtml) {
+        var notificationDiv = document.getElementById("notification");
+        notificationDiv.innerHTML = messageHtml;
+        notificationDiv.style.display = "block";
+        setTimeout(function(){
+          notificationDiv.style.display = "none";
+        }, 5000);
+      }
+      
+      function disableForecastButtons() {
+        document.getElementById("weeklyBtn").disabled = true;
+        document.getElementById("monthlyBtn").disabled = true;
+        document.getElementById("dailyBtn").disabled = true;
+        document.getElementById("exportBtn").disabled = true;
+        document.getElementById("chartBtn").disabled = true;
+        document.getElementById("compareBtn").disabled = true;
+        document.getElementById("pastCalcBtn").disabled = true;
+        document.getElementById("pastExportBtn").disabled = true;
+        document.getElementById("exportCompareBtn").disabled = true;
+        document.getElementById("annualBranchBtn").disabled = true;
+      }
+      
+      function enableForecastButtons() {
+        document.getElementById("weeklyBtn").disabled = false;
+        document.getElementById("monthlyBtn").disabled = false;
+        document.getElementById("dailyBtn").disabled = false;
+        document.getElementById("exportBtn").disabled = false;
+        document.getElementById("chartBtn").disabled = false;
+        document.getElementById("compareBtn").disabled = false;
+        document.getElementById("pastCalcBtn").disabled = false;
+        document.getElementById("pastExportBtn").disabled = false;
+        document.getElementById("exportCompareBtn").disabled = false;
+        document.getElementById("annualBranchBtn").disabled = false;
+      }
+      
+      // ---- חישוב תחזית עתידית ----
+      function runWeeklyCalc() {
+        forecastType = "weekly";
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("results").innerHTML = "";
+        document.getElementById("chartContainer").style.display = "none";
+        
+        const monthVal = document.getElementById("monthInput").value;
+        const weekVal  = document.getElementById("weekInput").value;
+        const sivug    = document.getElementById("sivugSelect").value;
+        
+        google.script.run
+          .withSuccessHandler(displayResults(monthVal + ", שבוע " + weekVal, sivug))
+          .withFailureHandler(displayError)
+          .calcWeeklyForecastSS(monthVal, weekVal, sivug);
+      }
+      
+      function runMonthlyCalc() {
+        forecastType = "monthly";
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("results").innerHTML = "";
+        document.getElementById("chartContainer").style.display = "none";
+        
+        const monthVal = document.getElementById("monthInput").value;
+        const sivug = document.getElementById("sivugSelect").value;
+        
+        google.script.run
+          .withSuccessHandler(displayResults(monthVal, sivug))
+          .withFailureHandler(displayError)
+          .calcMonthlyForecastSS(monthVal, sivug);
+      }
+      
+      function runDailyCalc() {
+        forecastType = "daily";
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("results").innerHTML = "";
+        document.getElementById("chartContainer").style.display = "none";
+        
+        const dayVal = document.getElementById("dayInput").value;
+        
+        google.script.run
+          .withSuccessHandler(function(response){
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (!response || !response.success) {
+              document.getElementById("results").innerHTML = "שגיאה בחישוב יומי!";
+              enableForecastButtons();
+              return;
+            }
+            forecastResult = response;
+            let html = "<h3>תחזית יומית: " + dayVal + "</h3>";
+            html += "סך הכנסה: " + response.totalRevenue.toFixed(2) + "<br>";
+            html += "סך הוצאה: " + response.totalCost.toFixed(2);
+            document.getElementById("results").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err){
+            displayError(err);
+            enableForecastButtons();
+          })
+          .calcDailyForecastSS(dayVal);
+      }
+      
+      // ---- הצגת גרף ----
+      function renderForecastChart() {
+        if (!forecastResult) {
+          showNotification("אין תוצאה לחישוב. נא לחשב תחזית תחילה.");
+          return;
+        }
+        
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'קטגוריה');
+        data.addColumn('number', 'סכום');
+        
+        const sivug = document.getElementById("sivugSelect").value;
+        
+        if (sivug === "cycle") {
+          data.addRow(["פרטי", forecastResult.privateSum || 0]);
+          data.addRow(["מוסדי", forecastResult.mosediSum || 0]);
+          data.addRow(["מוסדי פר ילד", forecastResult.mosediChildSum || 0]);
+        } else if (sivug === "lesson") {
+          data.addRow(["שיעור פרונטאלי", forecastResult.frontaliSum || 0]);
+          data.addRow(["שיעור פרטי", forecastResult.privateLessonSum || 0]);
+          data.addRow(["אונליין קבוצתי", forecastResult.onlineSum || 0]);
+          data.addRow(["תמיכה או בניית חומרים", forecastResult.supportSum || 0]);
+        } else if (sivug === "branch") {
+          if (forecastResult.branchDetails && forecastResult.branchDetails.length > 0) {
+            forecastResult.branchDetails.forEach(function(bd) {
+              data.addRow([bd.branchName, bd.sumRevenue || 0]);
+            });
+          } else {
+            data.addRow(["אין סניפים", 0]);
+          }
+        } else {
+          data.addRow(["הכנסה", forecastResult.totalRevenue || 0]);
+          data.addRow(["הוצאה", forecastResult.totalCost || 0]);
+        }
+        
+        var options = {
+          title: "תרשים תחזית",
+          backgroundColor: "#f8f8f8",
+          legend: { position: "right" },
+          hAxis: { title: "סכום (₪)", minValue: 0 },
+          chartArea: { left: 100, top: 50, width: '60%', height: '70%' }
+        };
+        
+        document.getElementById("chartContainer").style.display = "block";
+        var chart = new google.visualization.BarChart(document.getElementById("chartContainer"));
+        chart.draw(data, options);
+      }
+      
+      // ---- חישוב נתוני פגישות עבר ----
+      function runPastCalc() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("pastResults").innerHTML = "";
+        
+        const startDate = document.getElementById("pastStartDate").value;
+        const endDate = document.getElementById("pastEndDate").value;
+        const sivug = document.getElementById("pastSivugSelect").value;
+        
+        var startDateStr = startDate + "T00:00:00";
+        var endDateStr = endDate + "T00:00:00";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (!response || !response.success) {
+              document.getElementById("pastResults").innerHTML = "שגיאה בחישוב נתוני פגישות עבר!";
+              enableForecastButtons();
+              return;
+            }
+            pastResult = response;
+            let html = "<h3>חישוב נתוני פגישות עבר</h3>";
+            html += "סך הכנסה: " + response.totalIncome.toFixed(2) + "<br>";
+            html += "סך תשלום: " + response.totalPayment.toFixed(2) + "<br>";
+            html += "סך רווח: " + response.totalProfit.toFixed(2) + "<br><br>";
+            html += "<b>פירוט לפי " + (sivug === "branch" ? "סניף" : sivug === "lesson" ? "סוג הדרכה" : "סוג מחזור") + ":</b><br>";
+            if (response.breakdown && response.breakdown.length > 0) {
+              response.breakdown.forEach(function(item) {
+                html += item.group + ": " + item.count + " מפגשים, ";
+                html += "הכנסה: " + item.income.toFixed(2) + ", ";
+                html += "תשלום: " + item.payment.toFixed(2) + ", ";
+                html += "רווח: " + item.profit.toFixed(2) + "<br>";
+              });
+            } else {
+              html += "אין נתונים לפירוט.<br>";
+            }
+            document.getElementById("pastResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            displayError(err);
+            enableForecastButtons();
+          })
+          .calcPastForecast(startDateStr, endDateStr, sivug);
+      }
+      
+      // ---- ייצוא דוח תחזית עתידית ----
+      function exportForecast() {
+        if (!forecastResult) {
+          showNotification("אין תוצאה לייצוא. נא לחשב תחזית תחילה.");
+          return;
+        }
+        let reportNameInput = document.getElementById("reportName").value.trim();
+        let reportName = reportNameInput;
+        const sivug = document.getElementById("sivugSelect").value;
+        
+        if (!reportName) {
+          if (forecastType === "monthly") {
+            const monthVal = document.getElementById("monthInput").value;
+            reportName = "תחזית חודשית " + monthVal + " (" + sivug + ")";
+          } else if (forecastType === "weekly") {
+            const monthVal = document.getElementById("monthInput").value;
+            const weekVal = document.getElementById("weekInput").value;
+            reportName = "תחזית שבועית " + monthVal + ", שבוע " + weekVal + " (" + sivug + ")";
+          } else if (forecastType === "daily") {
+            const dayVal = document.getElementById("dayInput").value;
+            reportName = "תחזית יומית " + dayVal + " (" + sivug + ")";
+          } else {
+            reportName = "Forecast Report";
+          }
+        }
+        
+        disableForecastButtons();
+        google.script.run
+          .withSuccessHandler(function(url) {
+            enableForecastButtons();
+            showNotification('הדוח נוצר בהצלחה! לחץ <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">כאן</a> לגישה לדוח.<br>כתובת הקובץ: <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">' + url + '</a>');
+          })
+          .withFailureHandler(function(err) {
+            enableForecastButtons();
+            showNotification("שגיאה ביצוא: " + JSON.stringify(err));
+          })
+          .exportForecastToNewSheet(forecastResult, reportName);
+      }
+
+      function exportCompare() {
+  if (!compareResult) {
+    showNotification("אין תוצאה לייצוא. נא לחשב השוואת חודשים תחילה.");
+    return;
+  }
+  disableForecastButtons();
+  google.script.run
+    .withSuccessHandler(function(url) {
+      enableForecastButtons();
+      showNotification('דוח השוואה נוצר בהצלחה! לחץ <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">כאן</a> לגישה לדוח.');
+    })
+    .withFailureHandler(function(err) {
+      enableForecastButtons();
+      showNotification("שגיאה ביצוא דוח השוואה: " + JSON.stringify(err));
+    })
+    .exportCompareToSheet(compareResult, "דוח השוואת חודשים");
+}
+
+    function analyzeCompare() {
+        if (!compareResult) {
+          showNotification("אנא חשב קודם את השוואת החודשים.");
+          return;
+        }
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (!response || !response.success) {
+              showNotification("אירעה שגיאה בניתוח.");
+            } else {
+              // Display the analysis in a new div with id "analysisResults"
+              document.getElementById("analysisResults").innerHTML = "<h3>ניתוח השוואה:</h3>" + response.analysis;
+            }
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            showNotification("שגיאה בניתוח: " + JSON.stringify(err));
+            enableForecastButtons();
+          })
+          .analyzeComparisonByBranch(compareResult);
+  }
+
+
+      
+      // ---- ייצוא דוח נתוני פגישות עבר ----
+      function exportPastForecast() {
+        if (!pastResult) {
+          showNotification("אין תוצאה לייצוא. נא לחשב נתוני פגישות עבר תחילה.");
+          return;
+        }
+        const startDate = document.getElementById("pastStartDate").value;
+        const endDate = document.getElementById("pastEndDate").value;
+        const sivug = document.getElementById("pastSivugSelect").value;
+        let reportName = "נתוני פגישות עבר " + startDate + " עד " + endDate + " (" + sivug + ")";
+        
+        disableForecastButtons();
+        google.script.run
+          .withSuccessHandler(function(url) {
+            enableForecastButtons();
+            showNotification('דוח נתוני פגישות עבר נוצר בהצלחה! לחץ <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">כאן</a> לגישה לדוח.<br>כתובת הקובץ: <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">' + url + '</a>');
+          })
+          .withFailureHandler(function(err) {
+            enableForecastButtons();
+            showNotification("שגיאה ביצוא נתוני פגישות עבר: " + JSON.stringify(err));
+          })
+          .exportPastForecastToNewSheet(pastResult, reportName);
+      }
+      
+      // ---- השוואת חודשים לפי סניף ----
+      function runCompare() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("compareResults").innerHTML = "";
+        
+        const month1 = document.getElementById("compareMonth1").value;
+        const month2 = document.getElementById("compareMonth2").value;
+        
+        google.script.run
+          .withSuccessHandler(displayCompareResults)
+          .withFailureHandler(displayError)
+          .compareMonthlyForecastByBranch(month1, month2);
+      }
+      
+      function runAnnualBranchCalc() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("annualBranchResults").innerHTML = "";
+        
+        var branchId = document.getElementById("branchSelect").value;
+        var startDate = document.getElementById("yearlyStartDate").value;
+        var endDate = document.getElementById("yearlyEndDate").value;
+        var startDateStr = startDate + "T00:00:00";
+        var endDateStr = endDate + "T23:59:59";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (!response || !response.success) {
+              document.getElementById("annualBranchResults").innerHTML = "שגיאה בחישוב השנתי!";
+              enableForecastButtons();
+              return;
+            }
+            let html = "<h3>סיכום שנתי עבור הסניף: " +
+                      document.getElementById("branchSelect").options[document.getElementById("branchSelect").selectedIndex].text +
+                      "</h3>";
+            html += "מספר פגישות: " + response.meetingCount + "<br>";
+            html += "סך הכנסה: " + response.income.toFixed(2) + "<br>";
+            html += "סך תשלום: " + response.cost.toFixed(2) + "<br>";
+            html += "סך רווח: " + response.profit.toFixed(2) + "<br><br>";
+            
+            // הצגת פרטי הפגישות בטבלה
+            if (response.meetingDetails && response.meetingDetails.length > 0) {
+              html += "<h4>פרטי פגישות:</h4>";
+              html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; background:#fff; color:#000;'>";
+              html += "<tr><th>תאריך פגישה</th><th>שעת התחלה</th><th>שם מדריך</th><th>הכנסה</th><th>תשלום</th><th>רווח</th></tr>";
+              response.meetingDetails.forEach(function(detail) {
+                html += "<tr>";
+                html += "<td>" + detail.meetingDate + "</td>";
+                html += "<td>" + detail.startTime + "</td>";
+                html += "<td>" + detail.guideName + "</td>";
+                html += "<td>" + parseFloat(detail.income).toFixed(2) + "</td>";
+                html += "<td>" + parseFloat(detail.cost).toFixed(2) + "</td>";
+                html += "<td>" + parseFloat(detail.profit).toFixed(2) + "</td>";
+                html += "</tr>";
+              });
+              html += "</table>";
+            } else {
+              html += "אין פרטי פגישות.";
+            }
+            
+            document.getElementById("annualBranchResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("annualBranchResults").innerHTML = "שגיאה: " + err.message;
+            enableForecastButtons();
+          })
+          .calcBranchIncomeForPeriod(branchId, startDateStr, endDateStr);
+      }
+
+      function displayResults(title, sivug) {
+        return function(response) {
+          document.getElementById("loadingSpinner").style.display = "none";
+          if (!response || !response.success) {
+            document.getElementById("results").innerHTML = "שגיאה בחישוב!";
+            enableForecastButtons();
+            return;
+          }
+          let html = "<h3>תחזית: " + title + "</h3>";
+          html += "סך הכנסה: " + (response.totalRevenue || 0).toFixed(2) + "<br>";
+          html += "סך הוצאה: " + (response.totalCost || 0).toFixed(2) + "<br><br>";
+          
+          if (sivug === "cycle" && response.privateCount !== undefined) {
+            html += "<h4>סיווג לפי סוג מחזור:</h4>";
+            html += "פרטי: " + response.privateCount + " מפגשים, הכנסה: " + (response.privateSum || 0).toFixed(2) + "<br>";
+            html += "מוסדי: " + response.mosediCount + " מפגשים, הכנסה: " + (response.mosediSum || 0).toFixed(2) + "<br>";
+            html += "מוסדי פר ילד: " + response.mosediChildCount + " מפגשים, הכנסה: " + (response.mosediChildSum || 0).toFixed(2) + "<br>";
+          } else if (sivug === "lesson" && response.frontaliCount !== undefined) {
+            html += "<h4>סיווג לפי סוג ההדרכה:</h4>";
+            html += "שיעור פרונטאלי: " + response.frontaliCount + " מפגשים, הכנסה: " + (response.frontaliSum || 0).toFixed(2) + "<br>";
+            html += "שיעור פרטי: " + response.privateLessonCount + " מפגשים, הכנסה: " + (response.privateLessonSum || 0).toFixed(2) + "<br>";
+            html += "אונליין קבוצתי: " + response.onlineCount + " מפגשים, הכנסה: " + (response.onlineSum || 0).toFixed(2) + "<br>";
+            html += "תמיכה: " + response.supportCount + " מפגשים, הכנסה: " + (response.supportSum || 0).toFixed(2) + "<br>";
+          } else if (sivug === "branch" && response.branchDetails) {
+            html += "<h4>סיווג לפי סניף:</h4>";
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; background:#fff; color:#000;'>";
+            html += "<tr><th>סניף</th><th>מפגשים</th><th>הכנסה</th></tr>";
+            response.branchDetails.forEach(function(bd) {
+              html += "<tr><td>" + bd.branchName + "</td><td>" + bd.count + "</td><td>" + (bd.sumRevenue || 0).toFixed(2) + "</td></tr>";
+            });
+            html += "</table>";
+          }
+          document.getElementById("results").innerHTML = html;
+          enableForecastButtons();
+        };
+}
+
+
+
+      function displayCompareResults(response) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        if (!response || !response.success) {
+          document.getElementById("compareResults").innerHTML = "שגיאה בהשוואה!";
+          enableForecastButtons();
+          return;
+        }
+        compareResult = response;
+        let html = "<h3>השוואת חודשים: " + response.month1 + " מול " + response.month2 + " (סניף)</h3>";
+        html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; background:#fff; color:#000;'>";
+        html += "<tr><th>סניף</th><th>הכנסה (" + response.month1 + ")</th><th>הכנסה (" + response.month2 + ")</th><th>הפרש</th><th>% שינוי</th></tr>";
+        
+        if (response.comparison && response.comparison.length > 0) {
+          response.comparison.forEach(function(row) {
+            html += "<tr>";
+            html += "<td>" + row[0] + "</td>";
+            html += "<td>" + parseFloat(row[1]).toFixed(2) + "</td>";
+            html += "<td>" + parseFloat(row[2]).toFixed(2) + "</td>";
+            html += "<td>" + parseFloat(row[3]).toFixed(2) + "</td>";
+            html += "<td>" + parseFloat(row[4]).toFixed(2) + "%</td>";
+            html += "</tr>";
+          });
+        } else {
+          html += "<tr><td colspan='5'>אין נתונים להשוואה</td></tr>";
+        }
+        html += "</table>";
+        document.getElementById("compareResults").innerHTML = html;
+        enableForecastButtons();
+      }
+      
+      function displayError(err) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        document.getElementById("results").innerHTML = "שגיאה: " + err.message;
+        enableForecastButtons();
+      }
+
+      // טעינת רשימת הסניפים עם טעינת הדף
+      window.onload = function() {
+        google.script.run
+          .withSuccessHandler(populateBranchDropdown)
+          .withFailureHandler(displayError)
+          .getBranchList();
+      };
+
+      function populateBranchDropdown(branches) {
+        var select = document.getElementById("branchSelect");
+        if (branches && branches.length > 0) {
+          branches.forEach(function(branch) {
+            var option = document.createElement("option");
+            option.value = branch.id;
+            option.text = branch.name;
+            select.add(option);
+          });
+        } else {
+          console.error("לא נמצאו סניפים");
+        }
+      }
+
+      
+
+    </script>
+  </body>
+</html>
