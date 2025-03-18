@@ -234,6 +234,12 @@
           <div id="annualBranchResults"></div>
       </div>
 
+      <div class="section" id="activeCyclesSection">
+        <h2>מחזורים פעילים</h2>
+        <button id="showActiveCyclesBtn" onclick="showActiveCycles()">הצג מחזורים פעילים</button>
+        <div id="activeCyclesResults"></div>
+      </div>
+
     </div>
     
     <!-- Toast notification -->
@@ -265,6 +271,7 @@
         document.getElementById("pastExportBtn").disabled = true;
         document.getElementById("exportCompareBtn").disabled = true;
         document.getElementById("annualBranchBtn").disabled = true;
+        document.getElementById("showActiveCyclesBtn").disabled = true;
       }
       
       function enableForecastButtons() {
@@ -278,6 +285,7 @@
         document.getElementById("pastExportBtn").disabled = false;
         document.getElementById("exportCompareBtn").disabled = false;
         document.getElementById("annualBranchBtn").disabled = false;
+        document.getElementById("showActiveCyclesBtn").disabled = false;
       }
       
       // ---- חישוב תחזית עתידית ----
@@ -720,7 +728,44 @@
         }
       }
 
-      
+      function showActiveCycles() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("activeCyclesResults").innerHTML = "";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (!response || response.length === 0) {
+              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים פעילים";
+              enableForecastButtons();
+              return;
+            }
+
+            let html = "<h3>מחזורים פעילים</h3>";
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%; background:#fff; color:#000;'>";
+            html += "<tr><th>מס'</th><th>שם מחזור</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
+            
+            response.forEach((cycle, index) => {
+              html += "<tr>";
+              html += "<td>" + (index + 1) + "</td>";
+              html += "<td>" + cycle.Name + "</td>";
+              html += "<td>" + cycle.BranchName + "</td>";
+              html += "<td>₪" + cycle.Income + "</td>";
+              html += "</tr>";
+            });
+            
+            html += "</table>";
+            document.getElementById("activeCyclesResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("activeCyclesResults").innerHTML = "שגיאה בטעינת מחזורים פעילים: " + err;
+            enableForecastButtons();
+          })
+          .printActiveCycles();
+      }
 
     </script>
   </body>

@@ -134,7 +134,7 @@ function calcDailyForecastSS(dayStr) {
  * @param {string} sivug - סוג הסיווג: "cycle" (לפי סוג המחזור),
  *                         "lesson" (לפי סוג ההדרכה), או "branch" (לפי סניף)
  * @return {object} אובייקט JSON המכיל totalRevenue, totalCost, 
- *                  ופירוט בהתאם לסיווג (כגון privateCount, frontaliCount, branchDetails וכו’)
+ *                  ופירוט בהתאם לסיווג (כגון privateCount, frontaliCount, branchDetails וכו')
  */
 function calcMonthlyForecastSS(monthStr, sivug) {
   Logger.log("calcMonthlyForecastSS called: " + monthStr + ", sivug: " + sivug);
@@ -931,7 +931,7 @@ function getSumOfRegistrations(cycleId) {
  ***************************************************/
 function calculateMeetingCost(meeting) {
   var guideId = meeting.pcfsystemfield485;
-  // במקום parseInt, נקבל את הטקסט (שיעור פרונטאלי, שיעור פרטי, וכו’)
+  // במקום parseInt, נקבל את הטקסט (שיעור פרונטאלי, שיעור פרטי, וכו')
   var lessonTypeText = meeting.pcfsystemfield542 || "";
 
   // נקבל את תעריף המדריך לפי הטקסט (בפונקציה getGuideRate המעודכנת)
@@ -1876,7 +1876,7 @@ function getActiveCycles() {
     objecttype: 1000, // ObjectType עבור מחזורים
     page_size: 200,
     page_number: 1,
-    fields: "pcfsystemfield451,pcfsystemfield37", // שדה מזהה הסניף ושדה הסטטוס
+    fields: "pcfsystemfield451,pcfsystemfield37,name,pcfsystemfield550", // הוספת שדות שם והכנסה
     query: "pcfsystemfield37 = 3" // שאילתה לסינון מחזורים פעילים (סטטוס 3)
   };
 
@@ -1887,6 +1887,21 @@ function getActiveCycles() {
   }
 
   return data.data.Data;
+}
+
+function printActiveCycles() {
+  const activeCycles = getActiveCycles();
+  if (!activeCycles || activeCycles.length === 0) {
+    return [];
+  }
+  
+  return activeCycles.map((cycle) => {
+    return {
+      Name: cycle.name || '',
+      BranchName: getBranchName(cycle.pcfsystemfield451),
+      Income: parseFloat(cycle.pcfsystemfield550 || 0).toFixed(2)
+    };
+  });
 }
 
 /**
