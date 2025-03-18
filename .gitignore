@@ -1,0 +1,3 @@
+echo ".clasp.json" >> .gitignore
+echo "node_modules/" >> .gitignore
+echo "dist/" >> .gitignore  # If you're using TypeScript or a build step
