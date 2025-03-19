@@ -1876,7 +1876,7 @@ function getActiveCycles() {
     objecttype: 1000, // ObjectType עבור מחזורים
     page_size: 200,
     page_number: 1,
-    fields: "pcfsystemfield451,pcfsystemfield37,name,pcfsystemfield550", // הוספת שדות שם והכנסה
+    fields: "customobject1000id,pcfsystemfield451,pcfsystemfield37,name,pcfsystemfield550,pcfsystemfield33,pcfsystemfield35", // הוספת שדות שם והכנסה
     query: "pcfsystemfield37 = 3" // שאילתה לסינון מחזורים פעילים (סטטוס 3)
   };
 
@@ -1899,7 +1899,10 @@ function printActiveCycles() {
     return {
       Name: cycle.name || '',
       BranchName: getBranchName(cycle.pcfsystemfield451),
-      Income: parseFloat(cycle.pcfsystemfield550 || 0).toFixed(2)
+      Income: parseFloat(cycle.pcfsystemfield550 || 0).toFixed(2),
+      CycleId: cycle.customobject1000id,
+      StartDate: cycle.pcfsystemfield33 || '',
+      EndDate: cycle.pcfsystemfield35 || ''
     };
   });
 }
@@ -2298,4 +2301,46 @@ function testWeeklyForecastApril2025Week1() {
 
   var result = calcMonthlyForecastSS(monthStr, sivug);
   Logger.log("Weekly Forecast for April 2025, Week 1 (" + sivug + "): " + JSON.stringify(result));
+}
+
+function getEndedCycles(startDate, endDate) {
+  Logger.log("getEndedCycles called with date range: " + startDate + " to " + endDate);
+  var queryPayload = {
+    objecttype: 1000,
+    page_size: 200,
+    page_number: 1,
+    fields: "customobject1000id,pcfsystemfield451,pcfsystemfield37,name,pcfsystemfield550,pcfsystemfield35,pcfsystemfield33",
+    query: "(pcfsystemfield37 = 4) AND " +
+          "(pcfsystemfield35 >= " + startDate + "T00:00:00) AND " +
+          "(pcfsystemfield35 <= " + endDate + "T23:59:59)"
+  };
+
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("Error fetching ended cycles");
+    return null;
+  }
+
+  return data.data.Data;
+}
+
+function printEndedCycles(startDate, endDate) {
+  const endedCycles = getEndedCycles(startDate, endDate);
+  if (!endedCycles || endedCycles.length === 0) {
+    return [];
+  }
+  
+  return endedCycles.map((cycle) => {
+    return {
+      Name: cycle.name || '',
+      CycleId: cycle.customobject1000id,
+      StartDate: cycle.pcfsystemfield33,
+      EndDate: cycle.pcfsystemfield35
+    };
+  });
+}
+
+function testPrintActiveCycles() {
+  const cycles = printActiveCycles();
+  Logger.log("Active Cycles:", JSON.stringify(cycles, null, 2));
 }
