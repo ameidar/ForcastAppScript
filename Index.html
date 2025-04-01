@@ -9,7 +9,7 @@
     <!-- גופן מודרני -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&display=swap" rel="stylesheet">
     <!-- טעינת Google Charts (אם נדרש לגרפים) -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -19,19 +19,20 @@
     <style>
       body {
         direction: rtl;
-        font-family: 'Orbitron', 'Roboto', sans-serif;
+        font-family: 'Rubik', sans-serif;
         margin: 0;
         padding: 0;
-        background: linear-gradient(135deg, #0f0f29, #24243e);
-        color: #fff;
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: #e6e6e6;
         min-height: 100vh;
-        line-height: 1.6;
+        line-height: 1.8;
+        font-weight: 300;
       }
       
       .container {
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
-        padding: 20px;
+        padding: 30px;
         position: relative;
         z-index: 1;
       }
@@ -44,98 +45,78 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: radial-gradient(circle at center, rgba(22, 105, 219, 0.1) 0%, rgba(0, 0, 0, 0) 70%);
+        background: radial-gradient(circle at center, rgba(32, 129, 226, 0.08) 0%, rgba(0, 0, 0, 0) 70%);
         pointer-events: none;
         z-index: -1;
       }
       
       header {
         text-align: center;
-        margin-bottom: 30px;
+        margin-bottom: 40px;
         position: relative;
-        padding: 20px;
-        border-radius: 15px;
-        background: rgba(0, 0, 0, 0.3);
-        box-shadow: 0 0 25px rgba(0, 200, 255, 0.2);
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(0, 200, 255, 0.1);
+        padding: 30px;
+        border-radius: 20px;
+        background: rgba(26, 26, 46, 0.6);
+        box-shadow: 0 8px 32px rgba(0, 200, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
       }
       
       header h1 {
-        font-size: 2.2em;
-        margin: 10px 0 0;
-        text-shadow: 0 0 10px rgba(0, 200, 255, 0.7);
-        font-weight: 800;
-        letter-spacing: 1px;
+        font-size: 2.4em;
+        margin: 15px 0 0;
+        text-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+        font-weight: 500;
+        letter-spacing: 0.5px;
       }
       
       .company-logo {
-        max-width: 100px;
-        margin-bottom: 10px;
+        max-width: 120px;
+        margin-bottom: 15px;
         border-radius: 50%;
-        box-shadow: 0 0 20px rgba(0, 200, 255, 0.6);
+        box-shadow: 0 0 25px rgba(0, 200, 255, 0.4);
+        transition: transform 0.3s ease;
+      }
+      
+      .company-logo:hover {
+        transform: scale(1.05);
       }
       
       .section {
-        background: rgba(10, 12, 32, 0.7);
-        border-radius: 15px;
-        padding: 25px;
-        margin-bottom: 25px;
+        background: rgba(26, 26, 46, 0.6);
+        border-radius: 20px;
+        padding: 30px;
+        margin-bottom: 30px;
         position: relative;
-        box-shadow: 0 0 25px rgba(0, 200, 255, 0.15);
+        box-shadow: 0 8px 32px rgba(0, 200, 255, 0.1);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(0, 200, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.05);
         overflow: hidden;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
       }
       
       .section:hover {
         transform: translateY(-5px);
-        box-shadow: 0 0 30px rgba(0, 200, 255, 0.3);
-      }
-      
-      /* Futuristic corner accent */
-      .section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 30px;
-        height: 30px;
-        border-top: 2px solid rgba(0, 200, 255, 0.8);
-        border-right: 2px solid rgba(0, 200, 255, 0.8);
-        border-top-right-radius: 10px;
-      }
-      
-      .section::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        width: 30px;
-        height: 30px;
-        border-bottom: 2px solid rgba(0, 200, 255, 0.8);
-        border-left: 2px solid rgba(0, 200, 255, 0.8);
-        border-bottom-left-radius: 10px;
+        box-shadow: 0 12px 40px rgba(0, 200, 255, 0.15);
       }
       
       .section h2 {
         margin-top: 0;
-        font-size: 1.6em;
-        color: #00eaff;
-        text-shadow: 0 0 10px rgba(0, 234, 255, 0.5);
-        border-bottom: 1px solid rgba(0, 200, 255, 0.3);
-        padding-bottom: 10px;
-        font-weight: 600;
-        letter-spacing: 1px;
+        font-size: 1.8em;
+        color: #4cc9f0;
+        text-shadow: 0 0 10px rgba(76, 201, 240, 0.3);
+        border-bottom: 1px solid rgba(76, 201, 240, 0.2);
+        padding-bottom: 15px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
       }
       
       label {
         display: block;
-        margin-bottom: 15px;
-        color: #c4e7ff;
+        margin-bottom: 20px;
+        color: #b8c1ec;
         font-size: 1.1em;
-        text-shadow: 0 0 5px rgba(196, 231, 255, 0.3);
+        font-weight: 400;
       }
       
       input[type="month"],
@@ -146,23 +127,23 @@
         width: 100%;
         max-width: 300px;
         padding: 12px 15px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         border: none;
-        border-radius: 8px;
+        border-radius: 12px;
         font-size: 1em;
-        font-family: 'Orbitron', sans-serif;
-        background: rgba(0, 17, 46, 0.7);
-        color: #00eaff;
-        box-shadow: 0 0 15px rgba(0, 200, 255, 0.2), inset 0 0 5px rgba(0, 200, 255, 0.1);
+        font-family: 'Rubik', sans-serif;
+        background: rgba(26, 26, 46, 0.8);
+        color: #4cc9f0;
+        box-shadow: 0 4px 12px rgba(0, 200, 255, 0.1);
         transition: all 0.3s ease;
-        backdrop-filter: blur(5px);
-        border: 1px solid rgba(0, 200, 255, 0.3);
+        border: 1px solid rgba(76, 201, 240, 0.2);
       }
       
       input:focus, select:focus {
         outline: none;
-        box-shadow: 0 0 20px rgba(0, 200, 255, 0.4), inset 0 0 10px rgba(0, 200, 255, 0.2);
-        border-color: rgba(0, 200, 255, 0.5);
+        box-shadow: 0 0 20px rgba(76, 201, 240, 0.2);
+        border-color: rgba(76, 201, 240, 0.4);
+        transform: translateY(-2px);
       }
       
       .button-group {
@@ -173,10 +154,10 @@
       }
       
       button {
-        padding: 13px 26px;
+        padding: 14px 28px;
         border: none;
-        border-radius: 8px;
-        background: linear-gradient(45deg, #003687, #0093e9);
+        border-radius: 12px;
+        background: linear-gradient(45deg, #4361ee, #4cc9f0);
         color: white;
         font-size: 1.1em;
         font-weight: 500;
@@ -184,36 +165,18 @@
         position: relative;
         overflow: hidden;
         transition: all 0.3s ease;
-        box-shadow: 0 0 15px rgba(0, 147, 233, 0.4);
-        font-family: 'Orbitron', sans-serif;
+        box-shadow: 0 4px 15px rgba(67, 97, 238, 0.3);
+        font-family: 'Rubik', sans-serif;
         letter-spacing: 0.5px;
-        z-index: 1;
-      }
-      
-      button::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: 0.5s;
-        z-index: -1;
-      }
-      
-      button:hover::before {
-        left: 100%;
       }
       
       button:hover:not(:disabled) {
-        transform: translateY(-3px) scale(1.02);
-        background: linear-gradient(45deg, #0056b3, #00b7ff);
-        box-shadow: 0 0 20px rgba(0, 183, 255, 0.6);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(67, 97, 238, 0.4);
       }
       
       button:active:not(:disabled) {
-        transform: translateY(1px);
+        transform: translateY(-1px);
       }
       
       button:disabled {
@@ -225,15 +188,14 @@
       
       #loadingSpinner {
         display: none;
-        margin: 15px 0;
-        font-weight: bold;
-        color: #00eaff;
-        text-shadow: 0 0 10px rgba(0, 234, 255, 0.7);
-        padding: 10px;
-        border-radius: 5px;
-        background: rgba(0, 17, 46, 0.4);
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 12px;
+        background: rgba(26, 26, 46, 0.6);
+        color: #4cc9f0;
         text-align: center;
         animation: pulse 1.5s infinite;
+        font-weight: 400;
       }
       
       @keyframes pulse {
@@ -257,18 +219,21 @@
       
       /* הדגשות וכותרות בתוך אזורי התוצאות */
       #results h3, #compareResults h3, #pastResults h3, #annualBranchResults h3, #activeCyclesResults h3, #analysisResults h3 {
-        color: #00eaff;
-        text-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
+        color: #4cc9f0;
+        text-shadow: 0 0 10px rgba(76, 201, 240, 0.3);
         margin-top: 0;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
+        font-weight: 500;
+        font-size: 1.6em;
       }
       
       /* כותרות משנה באזורי התוצאות */
       #results h4, #compareResults h4, #pastResults h4, #annualBranchResults h4, #activeCyclesResults h4, #analysisResults h4 {
-        color: #70e0ff;
-        text-shadow: 0 0 3px rgba(0, 200, 255, 0.4);
-        margin-top: 15px;
-        margin-bottom: 10px;
+        color: #7dd3f7;
+        text-shadow: 0 0 8px rgba(76, 201, 240, 0.2);
+        margin-top: 20px;
+        margin-bottom: 15px;
+        font-weight: 400;
       }
       
       /* עיצוב ערכים מודגשים */
@@ -284,35 +249,34 @@
       /* Tables styling */
       table {
         width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-        background: rgba(1, 13, 32, 0.9);
-        border-radius: 8px;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 20px;
+        background: rgba(26, 26, 46, 0.8);
+        border-radius: 12px;
         overflow: hidden;
-        border: 1px solid rgba(0, 200, 255, 0.5);
-        box-shadow: 0 0 10px rgba(0, 200, 255, 0.4);
+        box-shadow: 0 4px 20px rgba(0, 200, 255, 0.1);
       }
       
       th {
-        background: rgba(0, 75, 124, 0.9);
-        color: white;
-        padding: 12px;
+        background: rgba(67, 97, 238, 0.3);
+        color: #4cc9f0;
+        padding: 15px;
         text-align: center;
-        font-weight: 600;
-        text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
+        font-weight: 500;
+        font-size: 1.1em;
       }
       
       td {
-        padding: 10px;
+        padding: 12px;
         text-align: center;
-        border-top: 1px solid rgba(0, 200, 255, 0.3);
-        color: white;
-        text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+        border-top: 1px solid rgba(76, 201, 240, 0.1);
+        color: #e6e6e6;
+        font-weight: 300;
       }
       
       tr:hover td {
-        background: rgba(0, 75, 124, 0.4);
-        color: #00eaff;
+        background: rgba(67, 97, 238, 0.1);
       }
       
       /* Chart container */
@@ -354,13 +318,13 @@
       
       /* Responsive styles */
       @media (max-width: 768px) {
-        .container { padding: 15px; }
-        header h1 { font-size: 1.8em; }
-        .company-logo { max-width: 80px; }
-        button { width: 100%; margin-bottom: 10px; }
-        .button-group { flex-direction: column; gap: 10px; }
+        .container { padding: 20px; }
+        header h1 { font-size: 2em; }
+        .company-logo { max-width: 100px; }
+        button { width: 100%; margin-bottom: 15px; }
+        .button-group { flex-direction: column; gap: 15px; }
         #chartContainer { height: 300px; }
-        .section { padding: 15px; }
+        .section { padding: 20px; }
       }
     </style>
   </head>
@@ -471,8 +435,48 @@
         <div class="button-group" style="display: flex; gap: 10px; margin-bottom: 15px;">
           <button id="showActiveCyclesBtn" onclick="showActiveCycles()">הצג מחזורים פעילים</button>
           <button id="showEndedCyclesBtn" onclick="showEndedCycles()">הצג מחזורים שהסתיימו</button>
+          <button id="showEndingThisMonthBtn" onclick="showEndingThisMonth()">הצג מחזורים שמסתיימים החודש</button>
         </div>
         <div id="activeCyclesResults"></div>
+      </div>
+
+      <!-- הוספת אזור חדש להזמנות מוסדיות -->
+      <div class="section" id="institutionalOrdersSection">
+        <h2>הזמנות מוסדיות</h2>
+        <div class="button-group">
+          <button id="showInstitutionalOrdersBtn" onclick="showInstitutionalOrders()">הצג הזמנות מוסדיות בסטטוס מעקב וגבייה</button>
+        </div>
+        <div id="institutionalOrdersResults"></div>
+      </div>
+
+      <!-- הוספת אזור חדש להשוואת תאריכי סיום -->
+      <div class="section" id="cycleEndDateSection">
+        <h2>השוואת תאריכי סיום מחזורים</h2>
+        <div class="button-group">
+          <button id="compareCycleEndDatesBtn" onclick="showCycleEndDateComparison()">הצג מחזורים עם פער בין תאריך סיום לפגישה אחרונה</button>
+        </div>
+        <div id="cycleEndDateResults"></div>
+      </div>
+
+      <!-- הוספת אזור חדש לצ'אטבוט -->
+      <div class="section" id="chatbotSection">
+        <h2>צ'אטבוט חכם</h2>
+        <div id="chatContainer" style="height: 400px; overflow-y: auto; margin-bottom: 20px; padding: 10px; background: rgba(0, 10, 30, 0.5); border-radius: 10px;">
+          <div id="chatMessages"></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="chatInput" placeholder="שאל שאלה על פגישות..." style="flex-grow: 1;">
+          <button onclick="sendChatMessage()" id="sendChatBtn">שלח</button>
+        </div>
+      </div>
+
+      <!-- הוספת אזור חדש להרשמות לקורסים דיגיטליים -->
+      <div class="section" id="digitalCoursesSection">
+        <h2>הרשמות לקורסים דיגיטליים</h2>
+        <div class="button-group">
+          <button id="showDigitalRegistrationsBtn" onclick="showDigitalRegistrations()">הצג הרשמות לקורסים דיגיטליים</button>
+        </div>
+        <div id="digitalRegistrationsResults"></div>
       </div>
 
     </div>
@@ -508,6 +512,9 @@
         document.getElementById("annualBranchBtn").disabled = true;
         document.getElementById("showActiveCyclesBtn").disabled = true;
         document.getElementById("showEndedCyclesBtn").disabled = true;
+        document.getElementById("showInstitutionalOrdersBtn").disabled = true;
+        document.getElementById("compareCycleEndDatesBtn").disabled = true;
+        document.getElementById("showDigitalRegistrationsBtn").disabled = true;
       }
       
       function enableForecastButtons() {
@@ -523,6 +530,9 @@
         document.getElementById("annualBranchBtn").disabled = false;
         document.getElementById("showActiveCyclesBtn").disabled = false;
         document.getElementById("showEndedCyclesBtn").disabled = false;
+        document.getElementById("showInstitutionalOrdersBtn").disabled = false;
+        document.getElementById("compareCycleEndDatesBtn").disabled = false;
+        document.getElementById("showDigitalRegistrationsBtn").disabled = false;
       }
       
       // ---- חישוב תחזית עתידית ----
@@ -955,6 +965,20 @@
         }
       }
 
+      function sortCyclesByEndDate(cycles) {
+        return cycles.sort((a, b) => {
+          const getEndDate = (cycle) => {
+            const endDateStr = cycle.EndDate || cycle.pcfsystemfield35;
+            if (!endDateStr) return new Date(0);
+            return new Date(endDateStr);
+          };
+
+          const dateA = getEndDate(a);
+          const dateB = getEndDate(b);
+          return dateA - dateB; // מהקרוב לרחוק
+        });
+      }
+
       function showActiveCycles() {
         disableForecastButtons();
         document.getElementById("loadingSpinner").style.display = "block";
@@ -970,87 +994,9 @@
               return;
             }
 
-            // סינון מחזורים ללא הכנסה
-            const cyclesWithIncome = response.filter(cycle => cycle.Income && parseFloat(cycle.Income) > 0);
-            
-            if (cyclesWithIncome.length === 0) {
-              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים פעילים עם הכנסה";
-              enableForecastButtons();
-              return;
-            }
-
-            // נדפיס את המחזור הראשון לקונסול לצורך בדיקה
-            console.log("מחזור לדוגמה:", cyclesWithIncome[0]);
-
-            let html = "<h3>מחזורים פעילים</h3>";
-            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
-            html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
-            
-            cyclesWithIncome.forEach((cycle, index) => {
-              html += "<tr>";
-              html += "<td>" + (index + 1) + "</td>";
-              
-              // שם המחזור עם לינק
-              const cycleId = cycle.customobject1000id || cycle.CycleId || '';
-              
-              // אם אין מזהה, נשתמש בשם המחזור בלבד
-              if (cycleId) {
-                html += "<td><a href='https://app.fireberry.com/app/record/1000/" + cycleId + "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + cycle.Name + "</a></td>";
-              } else {
-                html += "<td>" + cycle.Name + "</td>";
-              }
-              
-              // תאריך התחלה - בדיקה נרחבת יותר לערכים אפשריים
-              let startDateStr = null;
-              if (cycle.pcfsystemfield33) {
-                startDateStr = cycle.pcfsystemfield33;
-              } else if (cycle.StartDate) {
-                startDateStr = cycle.StartDate;
-              }
-              
-              let startDateFormatted = '';
-              if (startDateStr) {
-                try {
-                  const startDt = new Date(startDateStr);
-                  startDateFormatted = startDt.toLocaleDateString('he-IL');
-                } catch (e) {
-                  console.error("שגיאה בפירוש תאריך התחלה:", e);
-                }
-              }
-              html += "<td>" + startDateFormatted + "</td>";
-              
-              // תאריך סיום - בדיקה נרחבת יותר לערכים אפשריים
-              let endDateStr = null;
-              if (cycle.pcfsystemfield35) {
-                endDateStr = cycle.pcfsystemfield35;
-              } else if (cycle.EndDate) {
-                endDateStr = cycle.EndDate;
-              }
-              
-              let endDateFormatted = '';
-              if (endDateStr) {
-                try {
-                  const endDt = new Date(endDateStr);
-                  endDateFormatted = endDt.toLocaleDateString('he-IL');
-                } catch (e) {
-                  console.error("שגיאה בפירוש תאריך סיום:", e);
-                }
-              }
-              html += "<td>" + endDateFormatted + "</td>";
-              
-              // סניף והכנסה
-              html += "<td>" + cycle.BranchName + "</td>";
-              html += "<td>₪" + cycle.Income + "</td>";
-              html += "</tr>";
-
-              console.log("Cycle ID:", cycleId);
-              if (!cycleId) {
-                console.error("Missing cycle ID for cycle:", cycle);
-              }
-            });
-            
-            html += "</table>";
-            document.getElementById("activeCyclesResults").innerHTML = html;
+            // מיון המחזורים לפי תאריך סיום
+            const sortedCycles = sortCyclesByEndDate(response);
+            displayCycles(sortedCycles, "מחזורים פעילים");
             enableForecastButtons();
           })
           .withFailureHandler(function(err) {
@@ -1066,56 +1012,23 @@
         document.getElementById("loadingSpinner").style.display = "block";
         document.getElementById("activeCyclesResults").innerHTML = "";
         
-        // הגדרת טווח תאריכים לשנת הלימודים האחרונה (מ-1.9.2024 ועד היום)
         const startDate = "2024-09-01";
         const today = new Date();
-        const endDate = today.toISOString().split('T')[0]; // היום בפורמט YYYY-MM-DD
-        
-        // תצוגה קצרה למשתמש בזמן הטעינה (לצורך אינדיקציה)
-        document.getElementById("loadingSpinner").innerHTML = "טוען מחזורים שהסתיימו בין " + startDate + " ל-" + endDate + "...";
+        const endDate = today.toISOString().split('T')[0];
         
         google.script.run
           .withSuccessHandler(function(response) {
             document.getElementById("loadingSpinner").style.display = "none";
-            document.getElementById("loadingSpinner").innerHTML = "טוען נתונים... אנא המתן";
             
             if (!response || response.length === 0) {
-              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים שהסתיימו בתקופה המבוקשת";
+              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים שהסתיימו";
               enableForecastButtons();
               return;
             }
-            
-            let html = "<h3>מחזורים שהסתיימו (מ-" + startDate + " עד " + endDate + ")</h3>";
-            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
-            html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th></tr>";
-            
-            response.forEach((cycle, index) => {
-              html += "<tr>";
-              html += "<td>" + (index + 1) + "</td>";
-              
-              // שם המחזור עם לינק
-              const cycleId = cycle.CycleId || '';
-              if (cycleId) {
-                html += "<td><a href='https://app.fireberry.com/app/record/1000/" + cycleId + "' target='_blank'>" + cycle.Name + "</a></td>";
-              } else {
-                html += "<td>" + cycle.Name + "</td>";
-              }
-              
-              // תאריך התחלה (pcfsystemfield33)
-              const startDt = cycle.StartDate ? new Date(cycle.StartDate) : null;
-              const startDateFormatted = startDt ? startDt.toLocaleDateString('he-IL') : '';
-              html += "<td>" + startDateFormatted + "</td>";
-              
-              // תאריך סיום (pcfsystemfield35)
-              const endDt = cycle.EndDate ? new Date(cycle.EndDate) : null;
-              const endDateFormatted = endDt ? endDt.toLocaleDateString('he-IL') : '';
-              html += "<td>" + endDateFormatted + "</td>";
-              
-              html += "</tr>";
-            });
-            
-            html += "</table>";
-            document.getElementById("activeCyclesResults").innerHTML = html;
+
+            // מיון המחזורים לפי תאריך סיום
+            const sortedCycles = sortCyclesByEndDate(response);
+            displayCycles(sortedCycles, "מחזורים שהסתיימו");
             enableForecastButtons();
           })
           .withFailureHandler(function(err) {
@@ -1124,6 +1037,479 @@
             enableForecastButtons();
           })
           .printEndedCycles(startDate, endDate);
+      }
+
+      function showEndingThisMonth() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("activeCyclesResults").innerHTML = "";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            
+            if (!response || response.length === 0) {
+              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים פעילים";
+              enableForecastButtons();
+              return;
+            }
+
+            // סינון מחזורים שמסתיימים החודש
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            const endingThisMonth = response.filter(cycle => {
+              const endDate = new Date(cycle.EndDate || cycle.pcfsystemfield35);
+              return endDate.getMonth() === currentMonth && 
+                     endDate.getFullYear() === currentYear;
+            });
+
+            if (endingThisMonth.length === 0) {
+              document.getElementById("activeCyclesResults").innerHTML = "לא נמצאו מחזורים שמסתיימים החודש";
+              enableForecastButtons();
+              return;
+            }
+
+            // מיון המחזורים לפי תאריך סיום
+            const sortedCycles = sortCyclesByEndDate(endingThisMonth);
+            displayCycles(sortedCycles, "מחזורים שמסתיימים החודש");
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("activeCyclesResults").innerHTML = "שגיאה בטעינת מחזורים: " + err;
+            enableForecastButtons();
+          })
+          .printActiveCycles();
+      }
+
+      function displayCycles(cycles, title) {
+        let html = "<h3>" + title + "</h3>";
+        html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+        html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
+        
+        cycles.forEach((cycle, index) => {
+          html += "<tr>";
+          html += "<td>" + (index + 1) + "</td>";
+          
+          const cycleId = cycle.CycleId || cycle.customobject1000id || '';
+          if (cycleId) {
+            html += "<td><a href='https://app.fireberry.com/app/record/1000/" + cycleId + 
+                   "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
+                   cycle.Name + "</a></td>";
+          } else {
+            html += "<td>" + cycle.Name + "</td>";
+          }
+          
+          // תאריך התחלה
+          const startDate = cycle.StartDate || cycle.pcfsystemfield33;
+          const startDt = startDate ? new Date(startDate) : null;
+          const startDateFormatted = startDt ? startDt.toLocaleDateString('he-IL') : '';
+          html += "<td>" + startDateFormatted + "</td>";
+          
+          // תאריך סיום
+          const endDate = cycle.EndDate || cycle.pcfsystemfield35;
+          const endDt = endDate ? new Date(endDate) : null;
+          const endDateFormatted = endDt ? endDt.toLocaleDateString('he-IL') : '';
+          html += "<td>" + endDateFormatted + "</td>";
+          
+          html += "<td>" + (cycle.BranchName || '') + "</td>";
+          html += "<td>₪" + (cycle.Income || '0') + "</td>";
+          html += "</tr>";
+        });
+        
+        html += "</table>";
+        document.getElementById("activeCyclesResults").innerHTML = html;
+      }
+
+      function showInstitutionalOrders() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("institutionalOrdersResults").innerHTML = "";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            
+            if (!response || response.length === 0) {
+              document.getElementById("institutionalOrdersResults").innerHTML = "לא נמצאו הזמנות מוסדיות בסטטוס מעקב וגבייה או הסתיימה";
+              enableForecastButtons();
+              return;
+            }
+
+            console.log("Raw response:", response); // לדיבוג
+
+            // מיון התוצאות לפי תאריך תחילת פעילות
+            response.sort((a, b) => {
+              // המרת תאריכים לאובייקטי Date
+              const getDateFromString = (dateStr) => {
+                if (!dateStr || dateStr === 'לא צוין') return new Date(0);
+                // בדיקה אם התאריך בפורמט dd.mm.yyyy
+                if (dateStr.includes('.')) {
+                  const [day, month, year] = dateStr.split('.');
+                  return new Date(year, month - 1, day);
+                }
+                // בדיקה אם התאריך בפורמט d.m.yyyy
+                const parts = dateStr.split('.');
+                if (parts.length === 3) {
+                  return new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+                // אם התאריך בפורמט אחר (למשל "17.9.2024")
+                try {
+                  return new Date(dateStr);
+                } catch (e) {
+                  console.error("Error parsing date:", dateStr);
+                  return new Date(0);
+                }
+              };
+
+              console.log("Comparing dates:", {
+                dateA: a.ActivityStartDate,
+                dateB: b.ActivityStartDate
+              });
+
+              const dateA = getDateFromString(a.ActivityStartDate);
+              const dateB = getDateFromString(b.ActivityStartDate);
+
+              console.log("Converted dates:", {
+                dateA: dateA.toISOString(),
+                dateB: dateB.toISOString()
+              });
+
+              // שינוי סדר המיון למהחדש לישן (מאוחר למוקדם)
+              return dateB - dateA;
+            });
+
+            // חישוב סכומים לפי סטטוס
+            let totalPaymentTracking = 0;
+            let totalPaymentCompleted = 0;
+            
+            response.forEach(order => {
+              // הדפסת פרטי ההזמנה לדיבוג
+              console.log("Processing order:", {
+                name: order.Name,
+                status: order.Status,
+                payment: order.TotalPayment,
+                rawPayment: order.TotalPayment.replace(/[₪,\s]/g, '')
+              });
+
+              // ניקוי הסכום מסימן השקל, רווחים ופסיקים
+              const payment = parseFloat(order.TotalPayment.replace(/[₪,\s]/g, ''));
+              
+              // בדיקת הסטטוס לפי הטקסט המוצג
+              if (order.Status === "מעקב וגבייה") {
+                totalPaymentTracking += payment;
+                console.log("Added to tracking:", payment, "Total now:", totalPaymentTracking);
+              } else if (order.Status === "הסתיים") {
+                totalPaymentCompleted += payment;
+                console.log("Added to completed:", payment, "Total now:", totalPaymentCompleted);
+              }
+            });
+
+            let html = "<h3>הזמנות מוסדיות</h3>";
+            
+            // הצגת סיכומים
+            html += "<div style='margin-bottom: 20px;'>";
+            html += "<div style='padding: 10px; margin-bottom: 10px; background-color: rgba(255, 193, 7, 0.1); border-radius: 5px;'>";
+            html += "<p><strong>סך הכל בסטטוס מעקב וגבייה: ₪" + 
+                   totalPaymentTracking.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</strong></p>";
+            html += "</div>";
+            
+            html += "<div style='padding: 10px; margin-bottom: 10px; background-color: rgba(40, 167, 69, 0.1); border-radius: 5px;'>";
+            html += "<p><strong>סך הכל בסטטוס הסתיים: ₪" + 
+                   totalPaymentCompleted.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</strong></p>";
+            html += "</div>";
+            
+            html += "<div style='padding: 10px; background-color: rgba(0, 123, 255, 0.1); border-radius: 5px;'>";
+            html += "<p><strong>סך הכל כללי: ₪" + 
+                   (totalPaymentTracking + totalPaymentCompleted).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</strong></p>";
+            html += "</div>";
+            html += "</div>";
+
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+            html += "<tr><th>מס'</th><th>שם ההזמנה</th><th>סניף</th><th>תשלום כולל</th><th>תאריך תחילת פעילות</th><th>סטטוס</th></tr>";
+            
+            response.forEach((order, index) => {
+              // צבע רקע שונה לפי סטטוס
+              const rowStyle = order.Status === "מעקב וגבייה" ? 
+                             "background-color: rgba(255, 193, 7, 0.1);" :  // צהוב שקוף למעקב וגבייה
+                             "background-color: rgba(40, 167, 69, 0.1);";   // ירוק שקוף להסתיימה
+              
+              html += "<tr style='" + rowStyle + "'>";
+              html += "<td>" + (index + 1) + "</td>";
+              
+              // שם ההזמנה עם לינק
+              html += "<td><a href='https://app.fireberry.com/app/record/1005/" + order.OrderId + 
+                     "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
+                     order.Name + "</a></td>";
+              
+              html += "<td>" + order.BranchName + "</td>";
+              html += "<td>₪" + order.TotalPayment + "</td>";
+              
+              // הוספת תאריך תחילת פעילות
+              html += "<td>" + order.ActivityStartDate + "</td>";
+              
+              // עיצוב הסטטוס
+              const statusStyle = order.Status === "מעקב וגבייה" ?
+                                "color: #ffc107; font-weight: bold;" :  // צהוב למעקב וגבייה
+                                "color: #28a745; font-weight: bold;";   // ירוק להסתיימה
+              
+              html += "<td style='" + statusStyle + "'>" + order.Status + "</td>";
+              html += "</tr>";
+            });
+            
+            html += "</table>";
+            document.getElementById("institutionalOrdersResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("institutionalOrdersResults").innerHTML = "שגיאה בטעינת הזמנות מוסדיות: " + err;
+            enableForecastButtons();
+          })
+          .printInstitutionalOrders();
+      }
+
+      function showCycleEndDateComparison() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("cycleEndDateResults").innerHTML = "";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            
+            if (!response || response.length === 0) {
+              document.getElementById("cycleEndDateResults").innerHTML = "לא נמצאו מחזורים עם פער בין תאריך סיום לפגישה אחרונה";
+              enableForecastButtons();
+              return;
+            }
+
+            let html = "<h3>מחזורים עם פער בין תאריך סיום לפגישה אחרונה</h3>";
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+            html += "<tr><th>מס'</th><th>שם המחזור</th><th>תאריך סיום מתוכנן</th><th>תאריך פגישה אחרונה</th><th>פער בימים</th><th>פעולות</th></tr>";
+            
+            response.forEach((cycle, index) => {
+              const rowStyle = cycle.DaysDiff > 7 ? 
+                             "background-color: rgba(220, 53, 69, 0.1);" :  // אדום שקוף לפער גדול
+                             "background-color: rgba(255, 193, 7, 0.1);";   // צהוב שקוף לפער קטן
+              
+              html += "<tr style='" + rowStyle + "'>";
+              html += "<td>" + (index + 1) + "</td>";
+              
+              html += "<td><a href='https://app.fireberry.com/app/record/1000/" + cycle.CycleId + 
+                     "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
+                     cycle.Name + "</a></td>";
+              
+              html += "<td>" + cycle.EndDate + "</td>";
+              html += "<td>" + cycle.LastMeeting + "</td>";
+              
+              const gapStyle = cycle.DaysDiff > 7 ?
+                             "color: #dc3545; font-weight: bold;" :  // אדום לפער גדול
+                             "color: #ffc107; font-weight: bold;";   // צהוב לפער קטן
+              
+              html += "<td style='" + gapStyle + "'>" + cycle.DaysDiff + "</td>";
+              
+              // הוספת כפתור עדכון
+              html += "<td><button onclick='updateCycleEndDateToLastMeeting(\"" + 
+                     cycle.CycleId + "\", \"" + cycle.RawLastMeetingDate + "\")' " +
+                     "style='background: linear-gradient(45deg, #28a745, #20c997); color: white; " +
+                     "border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;'>" +
+                     "עדכן תאריך סיום</button></td>";
+              
+              html += "</tr>";
+            });
+            
+            html += "</table>";
+
+            // הוספת כפתור לעדכון כל המחזורים
+            html += "<div style='margin-top: 20px; text-align: center;'>";
+            html += "<button onclick='updateAllCyclesEndDates()' " +
+                   "style='background: linear-gradient(45deg, #4361ee, #4cc9f0); color: white; " +
+                   "border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1.1em;'>" +
+                   "עדכן את כל תאריכי הסיום</button>";
+            html += "</div>";
+
+            document.getElementById("cycleEndDateResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("cycleEndDateResults").innerHTML = "שגיאה בטעינת השוואת תאריכים: " + err;
+            enableForecastButtons();
+          })
+          .printCyclesEndDateComparison();
+      }
+
+      // פונקציה חדשה לעדכון תאריך הסיום
+      function updateCycleEndDateToLastMeeting(cycleId, lastMeetingDate) {
+        document.getElementById("loadingSpinner").style.display = "block";
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (result.success) {
+              showNotification("תאריך הסיום עודכן בהצלחה");
+              // רענון הטבלה
+              showCycleEndDateComparison();
+            } else {
+              showNotification("שגיאה בעדכון תאריך הסיום: " + result.message);
+            }
+          })
+          .withFailureHandler(function(error) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            showNotification("שגיאה בעדכון תאריך הסיום: " + error);
+          })
+          .updateCycleEndDate(cycleId, lastMeetingDate);
+      }
+
+      // פונקציה חדשה לעדכון כל המחזורים
+      function updateAllCyclesEndDates() {
+        document.getElementById("loadingSpinner").style.display = "block";
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            if (result.success) {
+              showNotification(result.message);
+              // רענון הטבלה
+              showCycleEndDateComparison();
+            } else {
+              showNotification("שגיאה בעדכון תאריכי הסיום: " + result.message);
+            }
+          })
+          .withFailureHandler(function(error) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            showNotification("שגיאה בעדכון תאריכי הסיום: " + error);
+          })
+          .updateAllCyclesEndDates();
+      }
+
+      // פונקציות חדשות לצ'אטבוט
+      function addChatMessage(message, isUser = false) {
+        var chatMessages = document.getElementById("chatMessages");
+        var messageDiv = document.createElement("div");
+        messageDiv.className = "chat-message " + (isUser ? "user-message" : "bot-message");
+        messageDiv.style.margin = "10px";
+        messageDiv.style.padding = "10px";
+        messageDiv.style.borderRadius = "10px";
+        messageDiv.style.maxWidth = "80%";
+        messageDiv.style.wordWrap = "break-word";
+        
+        if (isUser) {
+          messageDiv.style.marginLeft = "auto";
+          messageDiv.style.background = "rgba(67, 97, 238, 0.3)";
+        } else {
+          messageDiv.style.marginRight = "auto";
+          messageDiv.style.background = "rgba(76, 201, 240, 0.3)";
+        }
+        
+        messageDiv.textContent = message;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      function sendChatMessage() {
+        var input = document.getElementById("chatInput");
+        var message = input.value.trim();
+        if (!message) return;
+        
+        addChatMessage(message, true);
+        input.value = "";
+        document.getElementById("sendChatBtn").disabled = true;
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("sendChatBtn").disabled = false;
+            if (response.success) {
+              addChatMessage(response.answer);
+            } else {
+              addChatMessage("מצטער, אירעה שגיאה בעיבוד השאלה שלך.");
+            }
+          })
+          .withFailureHandler(function(error) {
+            document.getElementById("sendChatBtn").disabled = false;
+            addChatMessage("מצטער, אירעה שגיאה: " + error);
+          })
+          .processChatQuery(message);
+      }
+
+      // הוספת האזנה ללחיצה על Enter בשדה הקלט
+      document.getElementById("chatInput").addEventListener("keypress", function(event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendChatMessage();
+        }
+      });
+
+      function showDigitalRegistrations() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("digitalRegistrationsResults").innerHTML = "";
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            
+            if (!response || response.length === 0) {
+              document.getElementById("digitalRegistrationsResults").innerHTML = "לא נמצאו הרשמות לקורסים דיגיטליים";
+              enableForecastButtons();
+              return;
+            }
+
+            // מיון ההרשמות לפי תאריך הרשמה מהחדש לישן
+            response.sort((a, b) => {
+              const dateA = new Date(a.RegistrationDate.split('/').reverse().join('-'));
+              const dateB = new Date(b.RegistrationDate.split('/').reverse().join('-'));
+              return dateB - dateA;
+            });
+
+            // חישוב סך כל התשלומים
+            let totalPayment = response.reduce((sum, reg) => {
+              return sum + parseFloat(reg.Payment.replace(/[₪,\s]/g, ''));
+            }, 0);
+
+            let html = "<h3>הרשמות לקורסים דיגיטליים</h3>";
+            
+            // הצגת סיכום
+            html += "<div style='margin-bottom: 20px;'>";
+            html += "<div style='padding: 10px; background-color: rgba(0, 123, 255, 0.1); border-radius: 5px;'>";
+            html += "<p><strong>סך כל ההרשמות: " + response.length + "</strong></p>";
+            html += "<p><strong>סך כל התשלומים: ₪" + 
+                   totalPayment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 
+                   "</strong></p>";
+            html += "</div>";
+            html += "</div>";
+
+            // הצגת טבלת ההרשמות
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+            html += "<tr><th>מס'</th><th>שם הקורס</th><th>תאריך הרשמה</th><th>תשלום</th></tr>";
+            
+            response.forEach((reg, index) => {
+              html += "<tr>";
+              html += "<td>" + (index + 1) + "</td>";
+              
+              // שם הקורס עם לינק
+              html += "<td><a href='https://app.fireberry.com/app/record/14/" + reg.CourseId + 
+                     "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
+                     reg.CourseName + "</a></td>";
+              
+              html += "<td>" + reg.RegistrationDate + "</td>";
+              html += "<td>₪" + reg.Payment + "</td>";
+              html += "</tr>";
+            });
+            
+            html += "</table>";
+            document.getElementById("digitalRegistrationsResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("digitalRegistrationsResults").innerHTML = "שגיאה בטעינת הרשמות לקורסים דיגיטליים: " + err;
+            enableForecastButtons();
+          })
+          .printDigitalCourseRegistrations();
       }
 
     </script>

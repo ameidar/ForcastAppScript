@@ -2234,16 +2234,20 @@ function callOpenAIApi(prompt) {
 
   // Prepare the payload using the Chat Completion format.
   var payload = {
-    "model": "gpt-3.5-turbo",  // using a supported chat model
-    "messages": [
-      {
-        "role": "user",
-        "content": prompt
-      }
-    ],
-    "max_tokens": 150,  // adjust as needed
-    "temperature": 0.7  // adjust as needed
-  };
+  "model": "gpt-4-turbo",
+  "messages": [
+    {
+      "role": "user",
+      "content": prompt
+    }
+  ],
+  "max_tokens": 750,
+  "temperature": 0.3,
+  "top_p": 1.0,
+  "frequency_penalty": 0.2,
+  "presence_penalty": 0.1
+};
+
 
   var options = {
     "method": "post",
@@ -2343,4 +2347,1562 @@ function printEndedCycles(startDate, endDate) {
 function testPrintActiveCycles() {
   const cycles = printActiveCycles();
   Logger.log("Active Cycles:", JSON.stringify(cycles, null, 2));
+}
+
+/**
+ * getInstitutionalOrders - שליפת הזמנות מוסדיות בסטטוס מעקב וגבייה והסתיימה
+ * @return {Array} מערך של הזמנות מוסדיות עם פרטיהן
+ */
+function getInstitutionalOrders() {
+  Logger.log("getInstitutionalOrders called");
+  var queryPayload = {
+    objecttype: 1005,  // ObjectType עבור הזמנות מוסדיות
+    page_size: 200,
+    page_number: 1,
+    fields: "customobject1005id,name,pcfsystemfield192,pcfsystemfield182,pcfsystemfield181",  // שדות: מזהה, שם, תשלום כולל, סטטוס, סניף
+    query: "(pcfsystemfield182 = 10) OR (pcfsystemfield182 = 13)"  // סינון לפי סטטוס מעקב וגבייה (10) או הסתיים (13)
+  };
+
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("Error fetching institutional orders");
+    return null;
+  }
+
+  return data.data.Data;
+}
+
+/**
+ * printInstitutionalOrders - מחזירה את ההזמנות המוסדיות בפורמט מתאים לתצוגה
+ * @return {Array} מערך של הזמנות מוסדיות מעובדות לתצוגה
+ */
+function printInstitutionalOrders() {
+  const orders = getInstitutionalOrders();
+  if (!orders || orders.length === 0) {
+    return [];
+  }
+  
+  return orders.map((order) => {
+    const payment = parseFloat(order.pcfsystemfield192 || 0);
+    const statusNum = order.pcfsystemfield182;
+    let statusText = "";
+    
+    // המרה ממספר לטקסט
+    if (statusNum === "מעקב וגבייה") {
+      statusText = "מעקב וגבייה";
+    } else if (statusNum === "הסתיים") {
+      statusText = "הסתיים";
+    } else {
+      statusText = statusNum; // במקרה שיש ערך לא צפוי
+    }
+
+    return {
+      Name: order.name || '',
+      OrderId: order.customobject1005id,
+      TotalPayment: payment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      BranchName: getBranchName(order.pcfsystemfield181),
+      Status: statusText,
+      RawStatus: statusNum // שומר את הסטטוס המספרי המקורי
+    };
+  });
+}
+
+/**
+ * testInstitutionalOrders - פונקציית בדיקה להזמנות מוסדיות
+ * מדפיסה את כל הפרטים כולל סכומים לפי סטטוס
+ */
+function testInstitutionalOrders() {
+  const orders = getInstitutionalOrders();
+  Logger.log("Raw orders from API:", orders);
+
+  const processedOrders = printInstitutionalOrders();
+  Logger.log("Processed orders:", processedOrders);
+
+  // חישוב סכומים לפי סטטוס
+  let totalTracking = 0;
+  let totalCompleted = 0;
+  
+  processedOrders.forEach(order => {
+    const amount = parseFloat(order.TotalPayment.replace(/[₪,\s]/g, ''));
+    Logger.log("Processing order:", {
+      name: order.Name,
+      status: order.Status,
+      rawStatus: order.RawStatus,
+      amount: amount
+    });
+
+    if (order.RawStatus === "10") {
+      totalTracking += amount;
+      Logger.log("Added to tracking total:", amount, "New total:", totalTracking);
+    } else if (order.RawStatus === "13") {
+      totalCompleted += amount;
+      Logger.log("Added to completed total:", amount, "New total:", totalCompleted);
+    }
+  });
+
+  Logger.log("Final Totals:", {
+    tracking: totalTracking,
+    completed: totalCompleted,
+    total: totalTracking + totalCompleted
+  });
+}
+
+/**
+ * compareActiveCyclesEndDates - משווה בין תאריך סיום המחזור לתאריך הפגישה האחרונה
+ * @return {Array} מערך של מחזורים שבהם יש פער בין התאריכים
+ */
+function compareActiveCyclesEndDates() {
+  Logger.log("compareActiveCyclesEndDates called");
+  
+  var cyclesPayload = {
+    objecttype: 1000,
+    page_size: 200,
+    page_number: 1,
+    fields: "customobject1000id,name,pcfsystemfield35,pcfsystemfield37",
+    query: "pcfsystemfield37 = 3"
+  };
+
+  var cyclesData = sendRequestWithRetry(QUERY_API_URL, cyclesPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!cyclesData || !cyclesData.data || !cyclesData.data.Data) {
+    Logger.log("Error fetching active cycles");
+    return null;
+  }
+
+  var activeCycles = cyclesData.data.Data;
+  var results = [];
+
+  for (var i = 0; i < activeCycles.length; i++) {
+    var cycle = activeCycles[i];
+    var cycleId = cycle.customobject1000id;
+    var cycleEndDate = cycle.pcfsystemfield35;
+
+    if (!cycleEndDate) {
+      Logger.log("Cycle " + cycleId + " has no end date");
+      continue;
+    }
+
+    var meetingsPayload = {
+      objecttype: 6,
+      page_size: 200,
+      page_number: 1,
+      fields: "scheduledstart,pcfsystemfield498",
+      query: "pcfsystemfield498 = '" + cycleId + "'",
+      sort: [{ field: "scheduledstart", direction: "desc" }]
+    };
+
+    var meetingsData = sendRequestWithRetry(QUERY_API_URL, meetingsPayload, MAX_RETRIES, RETRY_DELAY_MS);
+    if (!meetingsData || !meetingsData.data || !meetingsData.data.Data || meetingsData.data.Data.length === 0) {
+      Logger.log("No meetings found for cycle: " + cycleId);
+      continue;
+    }
+
+    var meetings = meetingsData.data.Data;
+    meetings.sort(function(a, b) {
+      return new Date(b.scheduledstart) - new Date(a.scheduledstart);
+    });
+
+    var lastMeeting = meetings[0];
+    var lastMeetingDate = lastMeeting.scheduledstart;
+
+    Logger.log("Cycle: " + cycle.name);
+    Logger.log("End Date: " + cycleEndDate);
+    Logger.log("Last Meeting Date: " + lastMeetingDate);
+
+    var cycleEndDateTime = new Date(cycleEndDate);
+    var lastMeetingDateTime = new Date(lastMeetingDate);
+
+    if (Math.abs(cycleEndDateTime - lastMeetingDateTime) > 24 * 60 * 60 * 1000) {
+      results.push({
+        CycleName: cycle.name,
+        CycleId: cycleId,
+        EndDate: cycleEndDate,
+        LastMeetingDate: lastMeetingDate,
+        DaysDifference: Math.round(Math.abs(cycleEndDateTime - lastMeetingDateTime) / (24 * 60 * 60 * 1000))
+      });
+    }
+
+    Utilities.sleep(100);
+  }
+
+  return results;
+}
+
+/**
+ * printCyclesEndDateComparison - מדפיסה את תוצאות ההשוואה בפורמט מסודר
+ * @return {Array} מערך מעובד של תוצאות ההשוואה
+ */
+function printCyclesEndDateComparison() {
+  const results = compareActiveCyclesEndDates();
+  if (!results || results.length === 0) {
+    return [];
+  }
+  
+  return results.map(result => {
+    const endDate = new Date(result.EndDate);
+    const lastMeetingDate = new Date(result.LastMeetingDate);
+    
+    return {
+      Name: result.CycleName,
+      CycleId: result.CycleId,
+      EndDate: endDate.toLocaleDateString('he-IL'),
+      LastMeeting: lastMeetingDate.toLocaleDateString('he-IL'),
+      DaysDiff: result.DaysDifference,
+      RawLastMeetingDate: result.LastMeetingDate // שומר את התאריך המקורי לצורך העדכון
+    };
+  });
+}
+
+/**
+ * updateCycleEndDate - מעדכן את תאריך הסיום של מחזור
+ * @param {string} cycleId - מזהה המחזור
+ * @param {string} newEndDate - תאריך הסיום החדש
+ * @return {object} תוצאת העדכון
+ */
+function updateCycleEndDate(cycleId, newEndDate) {
+  Logger.log("updateCycleEndDate called for cycle " + cycleId + " with new date " + newEndDate);
+  
+  var url = API_URL + "/1000/" + cycleId;
+  var payload = {
+    "pcfsystemfield35": newEndDate
+  };
+  
+  var options = {
+    method: 'PUT',
+    contentType: 'application/json',
+    headers: {
+      tokenid: FIREBERRY_API_KEY,
+      accept: 'application/json'
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var responseCode = response.getResponseCode();
+    
+    if (responseCode === 200) {
+      // ניקוי המטמון של המחזור כדי שנקבל את הנתונים המעודכנים בפעם הבאה
+      if (cycleCache[cycleId]) {
+        delete cycleCache[cycleId];
+      }
+      return { success: true, message: "תאריך הסיום עודכן בהצלחה" };
+    } else {
+      return { success: false, message: "שגיאה בעדכון תאריך הסיום: " + response.getContentText() };
+    }
+  } catch (error) {
+    Logger.log("Error updating cycle end date: " + error);
+    return { success: false, message: "שגיאה בעדכון תאריך הסיום: " + error.toString() };
+  }
+}
+
+/**
+ * updateAllCyclesEndDates - מעדכן את כל תאריכי הסיום של המחזורים לפי תאריך הפגישה האחרונה
+ * @return {object} תוצאת העדכון הכולל
+ */
+function updateAllCyclesEndDates() {
+  Logger.log("updateAllCyclesEndDates called");
+  
+  var results = compareActiveCyclesEndDates();
+  if (!results || results.length === 0) {
+    return { success: true, message: "לא נמצאו מחזורים לעדכון", updatedCount: 0 };
+  }
+
+  var successCount = 0;
+  var errorCount = 0;
+  var errors = [];
+
+  for (var i = 0; i < results.length; i++) {
+    var cycle = results[i];
+    try {
+      var updateResult = updateCycleEndDate(cycle.CycleId, cycle.LastMeetingDate);
+      if (updateResult.success) {
+        successCount++;
+      } else {
+        errorCount++;
+        errors.push("שגיאה בעדכון מחזור " + cycle.CycleName + ": " + updateResult.message);
+      }
+      // הוספת השהייה קטנה בין העדכונים כדי לא להעמיס על ה-API
+      Utilities.sleep(300);
+    } catch (error) {
+      errorCount++;
+      errors.push("שגיאה בעדכון מחזור " + cycle.CycleName + ": " + error.toString());
+    }
+  }
+
+  return {
+    success: true,
+    message: "הושלם עדכון תאריכי סיום. עודכנו בהצלחה: " + successCount + " מחזורים. נכשלו: " + errorCount + " מחזורים.",
+    updatedCount: successCount,
+    errorCount: errorCount,
+    errors: errors
+  };
+}
+
+/**
+ * getMeetingDetails - מביא את כל הפרטים הרלוונטיים על פגישה
+ * @param {string} meetingId - מזהה הפגישה
+ * @return {object} אובייקט עם כל פרטי הפגישה
+ */
+function getMeetingDetails(meetingId) {
+  Logger.log("getMeetingDetails called for meeting: " + meetingId);
+  
+  var url = API_URL + "/6/" + meetingId;
+  var data = sendGetWithRetry(url, MAX_RETRIES, RETRY_DELAY_MS);
+  
+  if (!data || !data.data || !data.data.Record) {
+    Logger.log("Failed to fetch meeting details");
+    return null;
+  }
+  
+  var meeting = data.data.Record;
+  var cycleId = meeting.pcfsystemfield498;
+  var cycle = cycleId ? getCycleById(cycleId) : null;
+  var guideId = meeting.pcfsystemfield485;
+  var guide = guideId ? getGuideById(guideId) : null;
+  
+  // חישוב תחזית אם אין נתונים בפועל
+  var income = 0, cost = 0, profit = 0;
+  
+  // בדיקת סטטוס - תומך גם בערך מספרי וגם בטקסט
+  var status = meeting.statuscode;
+  var isCompleted = false;
+  
+  if (status) {
+    // המרה לסטרינג רק אם זה לא סטרינג
+    var statusStr = typeof status === 'string' ? status : status.toString();
+    isCompleted = statusStr === "3" || statusStr === "התקיימה";
+  }
+  
+  if (isCompleted) {
+    income = parseFloat(meeting.pcfsystemfield559 || 0);
+    cost = parseFloat(meeting.pcfsystemfield545 || 0);
+    profit = parseFloat(meeting.pcfsystemfield560 || 0);
+  } else if (cycle) {
+    income = getIncomePerMeeting(cycle);
+    cost = calculateMeetingCost(meeting);
+    profit = income - cost;
+  }
+
+  // המרת סטטוס מספרי לטקסט
+  var statusText = "";
+  if (status) {
+    var statusStr = typeof status === 'string' ? status : status.toString();
+    switch(statusStr) {
+      case "3":
+      case "התקיימה":
+        statusText = "התקיימה";
+        break;
+      case "1":
+      case "בוטלה":
+        statusText = "בוטלה";
+        break;
+      case "4":
+      case "נדחתה":
+        statusText = "נדחתה";
+        break;
+      case "2":
+      case "לא בשימוש":
+        statusText = "לא בשימוש";
+        break;
+      default:
+        statusText = statusStr;
+    }
+  } else {
+    statusText = "פעיל";
+  }
+
+  return {
+    id: meetingId,
+    name: meeting.name || "",
+    startDate: meeting.scheduledstart || "",
+    endDate: meeting.scheduledend || "",
+    status: statusText,
+    rawStatus: status, // שמירת הערך המקורי
+    lessonType: meeting.pcfsystemfield542 || "",
+    guideName: guide ? guide.name : "לא ידוע",
+    cycleName: cycle ? cycle.name : "לא ידוע",
+    income: income,
+    cost: cost,
+    profit: profit,
+    branchName: cycle ? getBranchName(cycle.pcfsystemfield451) : "לא ידוע"
+  };
+}
+
+/**
+ * searchMeetings - מחפש פגישות לפי פרמטרים שונים
+ * @param {object} params - פרמטרים לחיפוש (תאריכים, סטטוס, מדריך, מחזור וכו')
+ * @return {Array} מערך של פגישות שנמצאו
+ */
+function searchMeetings(params) {
+  Logger.log("searchMeetings called with params: " + JSON.stringify(params));
+  
+  var query = [];
+  
+  if (params.startDate) {
+    Logger.log("Adding startDate filter: " + params.startDate);
+    query.push("(scheduledstart >= " + params.startDate + ")");
+  }
+  if (params.endDate) {
+    Logger.log("Adding endDate filter: " + params.endDate);
+    query.push("(scheduledstart < " + params.endDate + ")");
+  }
+
+  // עדכון הטיפול בסטטוס - תמיכה גם בערכים מספריים וגם בטקסט
+  if (params.status) {
+    Logger.log("Adding status filter: " + params.status);
+    switch(params.status) {
+      case "פעיל":
+        // פגישות עתידיות - אין להן סטטוס
+        query.push("(statuscode is-null)");
+        break;
+      case "התקיימה":
+        query.push("((statuscode = 'התקיימה') OR (statuscode = '3'))");
+        break;
+      case "בוטלה":
+        query.push("((statuscode = 'בוטלה') OR (statuscode = '1'))");
+        break;
+      case "נדחתה":
+        query.push("((statuscode = 'נדחתה') OR (statuscode = '4'))");
+        break;
+      case "לא בשימוש":
+        query.push("((statuscode = 'לא בשימוש') OR (statuscode = '2'))");
+        break;
+    }
+  }
+
+  if (params.guideId) {
+    Logger.log("Adding guideId filter: " + params.guideId);
+    query.push("(pcfsystemfield485 = '" + params.guideId + "')");
+  }
+  if (params.cycleId) {
+    Logger.log("Adding cycleId filter: " + params.cycleId);
+    query.push("(pcfsystemfield498 = '" + params.cycleId + "')");
+  }
+  
+  // הוספת תנאי חובה שקיים מחזור
+  query.push("(pcfsystemfield498 is-not-null)");
+  
+  var queryPayload = {
+    objecttype: 6,
+    page_size: 50,
+    page_number: 1,
+    fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560",
+    query: query.join(" AND ")
+  };
+  
+  Logger.log("Final query payload: " + JSON.stringify(queryPayload));
+  
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("No data returned from API");
+    return [];
+  }
+  
+  Logger.log("Found " + data.data.Data.length + " meetings");
+  return data.data.Data.map(meeting => {
+    var details = getMeetingDetails(meeting.activityid);
+    Logger.log("Processed meeting: " + meeting.activityid);
+    return details;
+  });
+}
+
+/**
+ * processChatQuery - מעבד שאילתת צ'אט ומחזיר תשובה
+ * @param {string} query - השאילתה מהמשתמש
+ * @return {object} תשובת הצ'אטבוט
+ */
+function processChatQuery(query) {
+  Logger.log("processChatQuery called with query: " + query);
+  
+  try {
+    // First prompt to analyze the query and determine the time range
+    var analysisPrompt = `You are an AI assistant for a meeting management system that uses Fireberry API.
+Your task is to analyze the user's query and determine the appropriate time range for searching meetings.
+
+User query in Hebrew: "${query}"
+
+Current date and time for reference: ${new Date().toISOString()}
+
+Respond with a valid JSON object in this exact format:
+{
+  "queryType": "time_range" | "specific_meetings" | "need_clarification",
+  "timeRange": {
+    "startDate": "YYYY-MM-DDT00:00:00",
+    "endDate": "YYYY-MM-DDT23:59:59"
+  },
+  "filters": {
+    "status": null | "התקיימה" | "בוטלה" | "נדחתה" | "לא בשימוש" | "פעיל",
+    "guideId": null | "string",
+    "cycleId": null | "string"
+  },
+  "clarificationNeeded": false | true,
+  "clarificationQuestion": "string" | null,
+  "explanation": "string",
+  "useMemory": boolean
+}`;
+
+    var analysisResponse = callOpenAIApi(analysisPrompt);
+    var analysis = JSON.parse(cleanJsonResponse(analysisResponse));
+    
+    if (analysis.clarificationNeeded) {
+      return {
+        success: true,
+        answer: analysis.clarificationQuestion,
+        needsClarification: true
+      };
+    }
+
+    var searchParams = {
+      startDate: analysis.timeRange.startDate,
+      endDate: analysis.timeRange.endDate,
+      ...analysis.filters
+    };
+    
+    // חיפוש בזיכרון אם רלוונטי
+    let memorizedMeetings = [];
+    if (analysis.useMemory) {
+      memorizedMeetings = searchMemory('meetings', meeting => {
+        const meetingDate = new Date(meeting.startDate);
+        const startDate = new Date(searchParams.startDate);
+        const endDate = new Date(searchParams.endDate);
+        return meetingDate >= startDate && meetingDate <= endDate &&
+               (!searchParams.status || meeting.status === searchParams.status);
+      });
+    }
+    
+    // חיפוש בזמן אמת
+    var currentMeetings = searchMeetings(searchParams);
+    
+    // שמירת התוצאות החדשות בזיכרון
+    currentMeetings.forEach(meeting => {
+      saveToMemory(meeting, 'meetings', `${meeting.id}_${meeting.startDate}`);
+    });
+    
+    // שילוב התוצאות
+    var allMeetings = [...currentMeetings];
+    if (memorizedMeetings.length > 0) {
+      // הוספת פגישות מהזיכרון שלא נמצאו בחיפוש הנוכחי
+      memorizedMeetings.forEach(memMeeting => {
+        if (!allMeetings.some(m => m.id === memMeeting.id)) {
+          allMeetings.push(memMeeting);
+        }
+      });
+    }
+    
+    Logger.log(`Found ${currentMeetings.length} current meetings and ${memorizedMeetings.length} from memory`);
+    
+    // יצירת תשובה מותאמת
+    var responsePrompt = `You are a helpful assistant for a meeting management system.
+Analyze these meetings and provide a VERY CONCISE response in Hebrew.
+
+User query: "${query}"
+Analysis explanation: ${analysis.explanation}
+Current meetings found: ${currentMeetings.length}
+Memorized meetings found: ${memorizedMeetings.length}
+Time range analyzed: ${analysis.timeRange.startDate} to ${analysis.timeRange.endDate}
+Meetings data: ${JSON.stringify(allMeetings)}
+
+Response Guidelines:
+1. Write ONLY in Hebrew
+2. Keep responses extremely short and direct
+3. For questions about meeting counts, respond with just the number and basic context
+4. For questions about specific meetings, provide only the directly requested information
+5. Do not list individual meetings unless specifically asked
+6. Do not provide breakdowns or summaries unless specifically asked
+7. Focus only on answering exactly what was asked
+
+Make the response as brief as possible while still being clear and accurate.`;
+
+    var formattedResponse = callOpenAIApi(responsePrompt);
+    
+    return {
+      success: true,
+      answer: formattedResponse.trim(),
+      data: allMeetings,
+      analysis: analysis
+    };
+    
+  } catch (error) {
+    Logger.log("Error in processChatQuery: " + error + "\nStack: " + error.stack);
+    return {
+      success: false,
+      answer: "מצטער, נתקלתי בבעיה בעיבוד השאילתה: " + error.message,
+      data: null
+    };
+  }
+}
+
+/**
+ * cleanJsonResponse - מנקה את התשובה מ-OpenAI ומוודא שהיא JSON תקין
+ * @param {string} response - התשובה המקורית מ-OpenAI
+ * @return {string} תשובה מנוקה
+ */
+function cleanJsonResponse(response) {
+  if (!response) return "{}";
+  
+  // הסר תגי קוד אם קיימים
+  response = response.replace(/```json\s*/g, "")
+                    .replace(/```\s*/g, "")
+                    .trim();
+  
+  // הסר שורות חדשות מיותרות
+  response = response.replace(/\n\s*\n/g, "\n")
+                    .replace(/^\s+|\s+$/g, "");
+  
+  // נקה תווים מיוחדים
+  response = response.replace(/[\u200B-\u200D\uFEFF]/g, "");
+  
+  // וודא שיש סוגריים מסולסלים בהתחלה ובסוף
+  if (!response.startsWith("{")) {
+    response = "{" + response;
+  }
+  if (!response.endsWith("}")) {
+    response = response + "}";
+  }
+  
+  // נסה לפרסר ולהחזיר JSON מפורמט
+  try {
+    return JSON.stringify(JSON.parse(response));
+  } catch (e) {
+    Logger.log("Error parsing cleaned response: " + e);
+    Logger.log("Cleaned response was: " + response);
+    throw new Error("Could not parse OpenAI response as JSON");
+  }
+}
+
+/**
+ * testChatbotQuery - פונקציית בדיקה מקיפה לצ'אטבוט
+ * בודקת מספר תרחישים שונים ומדפיסה את התוצאות
+ */
+function testChatbotQuery() {
+  Logger.log("=== Starting Chatbot Test ===");
+  
+  // מערך של שאילתות לבדיקה
+  var testQueries = [
+    "כמה פגישות מתוכננות להיום?",
+    "מי המדריך בפגישה הבאה?",
+    "הראה לי את כל הפגישות שהתקיימו בחודש האחרון"
+  ];
+  
+  for (var i = 0; i < testQueries.length; i++) {
+    var query = testQueries[i];
+    Logger.log("\n=== Testing Query: " + query + " ===");
+    
+    try {
+      // קריאה לפונקציית העיבוד
+      var result = processChatQuery(query);
+      
+      // הדפסת התוצאות המפורטות
+      Logger.log("Success: " + result.success);
+      Logger.log("Answer from Bot: " + result.answer);
+      
+      if (result.data) {
+        if (Array.isArray(result.data)) {
+          Logger.log("Total Meetings Found: " + result.data.length);
+          
+          // סיכום לפי סטטוס
+          var statusCount = {};
+          result.data.forEach(function(meeting) {
+            var status = meeting.status || "לא מוגדר";
+            statusCount[status] = (statusCount[status] || 0) + 1;
+          });
+          
+          Logger.log("Status Breakdown:");
+          Object.keys(statusCount).forEach(function(status) {
+            Logger.log("- " + status + ": " + statusCount[status]);
+          });
+          
+          // הדפסת פרטי הפגישה הראשונה לדוגמה
+          if (result.data.length > 0) {
+            Logger.log("\nExample Meeting Details:");
+            Logger.log(JSON.stringify(result.data[0], null, 2));
+          }
+        } else {
+          Logger.log("Single Meeting Details:");
+          Logger.log(JSON.stringify(result.data, null, 2));
+        }
+      } else {
+        Logger.log("No data returned");
+      }
+    } catch (error) {
+      Logger.log("Error testing query: " + error);
+    }
+  }
+  
+  Logger.log("\n=== Test Complete ===");
+}
+
+/**
+ * testSearchMeetings - פונקציית בדיקה לחיפוש פגישות
+ */
+function testSearchMeetings() {
+  Logger.log("=== Starting Search Meetings Test ===");
+  
+  // בדיקה עם תאריכים של היום
+  var today = new Date();
+  var tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  var params = {
+    startDate: toIsoString(today),
+    endDate: toIsoString(tomorrow)
+  };
+  
+  Logger.log("Testing with params: " + JSON.stringify(params));
+  
+  try {
+    var results = searchMeetings(params);
+    Logger.log("Search completed successfully");
+    Logger.log("Found " + results.length + " meetings");
+    
+    if (results.length > 0) {
+      Logger.log("First meeting details:");
+      Logger.log(JSON.stringify(results[0], null, 2));
+    }
+  } catch (error) {
+    Logger.log("Error in search: " + error);
+  }
+  
+  Logger.log("=== Test Complete ===");
+}
+
+/**
+ * testChatbotWithLogging - פונקציית בדיקה מפורטת לצ'אטבוט
+ */
+function testChatbotWithLogging() {
+  Logger.log("=== Starting Detailed Chatbot Test ===");
+  
+  var query = "כמה פגישות מתוכננות להיום?";
+  Logger.log("\nTesting query: " + query);
+  
+  try {
+    // 1. קריאה לפונקציית העיבוד
+    Logger.log("\nStep 1: Calling processChatQuery");
+    var result = processChatQuery(query);
+    
+    // 2. בדיקת הצלחה
+    Logger.log("\nStep 2: Checking success");
+    Logger.log("Success: " + result.success);
+    
+    // 3. בדיקת התשובה
+    Logger.log("\nStep 3: Checking answer");
+    Logger.log("Bot answer: " + result.answer);
+    
+    // 4. בדיקת הנתונים
+    Logger.log("\nStep 4: Checking data");
+    if (result.data) {
+      if (Array.isArray(result.data)) {
+        Logger.log("Found " + result.data.length + " meetings");
+        
+        if (result.data.length > 0) {
+          Logger.log("\nFirst meeting details:");
+          Logger.log(JSON.stringify(result.data[0], null, 2));
+          
+          // סיכום סטטוסים
+          var statusCount = {};
+          result.data.forEach(function(meeting) {
+            var status = meeting.status || "לא מוגדר";
+            statusCount[status] = (statusCount[status] || 0) + 1;
+          });
+          
+          Logger.log("\nStatus breakdown:");
+          Object.keys(statusCount).forEach(function(status) {
+            Logger.log("- " + status + ": " + statusCount[status]);
+          });
+        }
+      } else {
+        Logger.log("Data is not an array:", result.data);
+      }
+    } else {
+      Logger.log("No data returned");
+    }
+    
+  } catch (error) {
+    Logger.log("\nERROR in test:");
+    Logger.log(error);
+    Logger.log("Stack trace:", error.stack);
+  }
+  
+  Logger.log("\n=== Test Complete ===");
+}
+
+/**
+ * testChatbotJsonHandling - פונקציית בדיקה ספציפית לטיפול ב-JSON
+ */
+function testChatbotJsonHandling() {
+  Logger.log("=== Starting JSON Handling Test ===");
+  
+  var testQueries = [
+    "כמה פגישות יש היום?",
+    "כמה מהפגישות של היום התקיימו?",
+    "מי המדריכים שיש להם פגישות השבוע?"
+  ];
+  
+  for (var i = 0; i < testQueries.length; i++) {
+    var query = testQueries[i];
+    Logger.log("\n=== Testing Query: " + query + " ===");
+    
+    try {
+      // קריאה לפונקציית העיבוד
+      var result = processChatQuery(query);
+      
+      // בדיקת הצלחה
+      Logger.log("Success: " + result.success);
+      
+      if (result.success) {
+        // בדיקת תקינות הנתונים
+        if (result.data) {
+          Logger.log("Data received successfully");
+          Logger.log("Number of meetings: " + (Array.isArray(result.data) ? result.data.length : "N/A"));
+          
+          // הדפסת דוגמה לנתונים
+          if (Array.isArray(result.data) && result.data.length > 0) {
+            Logger.log("First meeting example:");
+            Logger.log(JSON.stringify(result.data[0], null, 2));
+          }
+        } else {
+          Logger.log("No data received");
+        }
+        
+        // בדיקת התשובה
+        Logger.log("\nBot response:");
+        Logger.log(result.answer);
+      } else {
+        Logger.log("Error: " + result.answer);
+      }
+      
+    } catch (error) {
+      Logger.log("Test Error:");
+      Logger.log(error);
+      Logger.log("Stack trace:", error.stack);
+    }
+    
+    Logger.log("\n---");
+  }
+  
+  Logger.log("\n=== Test Complete ===");
+}
+
+/**
+ * testFutureMeetingsSearch - פונקציית בדיקה מקיפה לחיפוש פגישות עתידיות
+ * בודקת את כל השלבים בתהליך החיפוש ומדפיסה מידע מפורט
+ */
+function testFutureMeetingsSearch() {
+  Logger.log("=== Starting Future Meetings Search Test ===");
+
+  // 1. בדיקת חיפוש למחר
+  var tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  var tomorrowEnd = new Date(tomorrow);
+  tomorrowEnd.setHours(23, 59, 59, 999);
+
+  var startDateStr = toIsoString(tomorrow);
+  var endDateStr = toIsoString(tomorrowEnd);
+
+  Logger.log("\n1. Testing direct API query for tomorrow:");
+  Logger.log("Start date: " + startDateStr);
+  Logger.log("End date: " + endDateStr);
+
+  // בדיקת קריאה ישירה ל-API
+  var queryPayload = {
+    objecttype: 6,
+    page_size: 500,
+    page_number: 1,
+    fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,pcfsystemfield542,pcfsystemfield498,statuscode",
+    query: "(scheduledstart >= " + startDateStr + ") AND " +
+           "(scheduledstart < " + endDateStr + ") AND " +
+           "(pcfsystemfield498 is-not-null)"
+  };
+
+  var directApiResult = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  Logger.log("Direct API Response:");
+  Logger.log(JSON.stringify(directApiResult, null, 2));
+
+  // 2. בדיקת החיפוש דרך searchMeetings
+  Logger.log("\n2. Testing searchMeetings function:");
+  var searchParams = {
+    startDate: startDateStr,
+    endDate: endDateStr
+  };
+  var searchResult = searchMeetings(searchParams);
+  Logger.log("searchMeetings found " + (searchResult ? searchResult.length : 0) + " meetings");
+  if (searchResult && searchResult.length > 0) {
+    Logger.log("First meeting example:");
+    Logger.log(JSON.stringify(searchResult[0], null, 2));
+  }
+
+  // 3. בדיקת החיפוש דרך הצ'אטבוט
+  Logger.log("\n3. Testing chatbot query:");
+  var chatQuery = "מה הפגישות שמתוכננות למחר?";
+  var chatResult = processChatQuery(chatQuery);
+  Logger.log("Chatbot analysis:");
+  Logger.log(JSON.stringify(chatResult.analysis, null, 2));
+  Logger.log("Meetings found: " + (chatResult.data ? chatResult.data.length : 0));
+
+  // 4. בדיקת תנאי החיפוש בפונקציית getMeetingsForRange
+  Logger.log("\n4. Testing getMeetingsForRange function:");
+  var rangeResult = getMeetingsForRange(startDateStr, endDateStr);
+  Logger.log("getMeetingsForRange found " + (rangeResult ? rangeResult.length : 0) + " meetings");
+  
+  // 5. בדיקת פגישות ללא סינון סטטוס
+  Logger.log("\n5. Testing meetings without status filter:");
+  var allMeetings = getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr);
+  Logger.log("Total meetings without status filter: " + (allMeetings ? allMeetings.length : 0));
+  if (allMeetings && allMeetings.length > 0) {
+    Logger.log("Status breakdown:");
+    var statusCount = {};
+    allMeetings.forEach(function(meeting) {
+      var status = meeting.statuscode || "no_status";
+      statusCount[status] = (statusCount[status] || 0) + 1;
+    });
+    Logger.log(JSON.stringify(statusCount, null, 2));
+  }
+
+  // 6. בדיקת תקינות התאריכים
+  Logger.log("\n6. Date format validation:");
+  Logger.log("Tomorrow date object: " + tomorrow);
+  Logger.log("Tomorrow ISO string: " + startDateStr);
+  Logger.log("End date object: " + tomorrowEnd);
+  Logger.log("End ISO string: " + endDateStr);
+
+  // 7. סיכום ממצאים
+  Logger.log("\n=== Summary of Findings ===");
+  Logger.log("Direct API query found: " + (directApiResult && directApiResult.data ? directApiResult.data.Data.length : 0) + " meetings");
+  Logger.log("searchMeetings found: " + (searchResult ? searchResult.length : 0) + " meetings");
+  Logger.log("Chatbot query found: " + (chatResult.data ? chatResult.data.length : 0) + " meetings");
+  Logger.log("getMeetingsForRange found: " + (rangeResult ? rangeResult.length : 0) + " meetings");
+  Logger.log("Without status filter found: " + (allMeetings ? allMeetings.length : 0) + " meetings");
+
+  Logger.log("\n=== Test Complete ===");
+  return {
+    directApiResults: directApiResult,
+    searchResults: searchResult,
+    chatbotResults: chatResult,
+    rangeResults: rangeResult,
+    allMeetingsResults: allMeetings
+  };
+}
+
+/**
+ * testSpecificDateRange - בודק טווח תאריכים ספציפי
+ * @param {string} startDate - תאריך התחלה בפורמט YYYY-MM-DD
+ * @param {string} endDate - תאריך סיום בפורמט YYYY-MM-DD
+ */
+function testSpecificDateRange(startDate, endDate) {
+  Logger.log("=== Testing Specific Date Range ===");
+  Logger.log("Start Date: " + startDate);
+  Logger.log("End Date: " + endDate);
+
+  var startDateObj = new Date(startDate);
+  var endDateObj = new Date(endDate);
+  startDateObj.setHours(0, 0, 0, 0);
+  endDateObj.setHours(23, 59, 59, 999);
+
+  var startDateStr = toIsoString(startDateObj);
+  var endDateStr = toIsoString(endDateObj);
+
+  var result = testFutureMeetingsSearch();
+  
+  // הדפסת תוצאות מפורטות
+  Logger.log("\n=== Detailed Results for " + startDate + " to " + endDate + " ===");
+  if (result.allMeetingsResults && result.allMeetingsResults.length > 0) {
+    Logger.log("\nMeetings found:");
+    result.allMeetingsResults.forEach(function(meeting, index) {
+      Logger.log("\nMeeting " + (index + 1) + ":");
+      Logger.log("Start time: " + meeting.scheduledstart);
+      Logger.log("Status: " + meeting.statuscode);
+      Logger.log("Cycle ID: " + meeting.pcfsystemfield498);
+    });
+  } else {
+    Logger.log("No meetings found in this date range");
+  }
+
+  return result;
+}
+
+/**
+ * ChatMemory - מערכת זיכרון לצ'אטבוט
+ * מאפשרת שמירה ושליפה של מידע היסטורי על שיחות ופגישות
+ */
+
+const CHAT_MEMORY_KEY = "CHAT_MEMORY";
+const MAX_MEMORY_ITEMS = 100;  // מספר מקסימלי של פריטים בזיכרון
+
+/**
+ * saveToMemory - שומר מידע בזיכרון הצ'אטבוט
+ * @param {object} data - המידע לשמירה
+ * @param {string} type - סוג המידע (meeting/conversation/status)
+ * @param {string} key - מזהה ייחודי למידע
+ */
+function saveToMemory(data, type, key) {
+  try {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    let memory = JSON.parse(scriptProperties.getProperty(CHAT_MEMORY_KEY) || "{}");
+    
+    if (!memory[type]) {
+      memory[type] = {};
+    }
+    
+    // הוספת חותמת זמן לנתונים
+    const memoryItem = {
+      data: data,
+      timestamp: new Date().toISOString(),
+      key: key
+    };
+    
+    memory[type][key] = memoryItem;
+    
+    // מחיקת פריטים ישנים אם עברנו את המקסימום
+    const typeItems = Object.values(memory[type]);
+    if (typeItems.length > MAX_MEMORY_ITEMS) {
+      // מיון לפי זמן ומחיקת הפריטים הישנים ביותר
+      typeItems.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      memory[type] = {};
+      typeItems.slice(0, MAX_MEMORY_ITEMS).forEach(item => {
+        memory[type][item.key] = item;
+      });
+    }
+    
+    scriptProperties.setProperty(CHAT_MEMORY_KEY, JSON.stringify(memory));
+    Logger.log(`Saved to memory - Type: ${type}, Key: ${key}`);
+    return true;
+  } catch (error) {
+    Logger.log(`Error saving to memory: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * getFromMemory - מחזיר מידע מהזיכרון
+ * @param {string} type - סוג המידע
+ * @param {string} key - מזהה המידע
+ * @return {object} המידע השמור או null אם לא נמצא
+ */
+function getFromMemory(type, key) {
+  try {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    const memory = JSON.parse(scriptProperties.getProperty(CHAT_MEMORY_KEY) || "{}");
+    
+    if (memory[type] && memory[type][key]) {
+      Logger.log(`Retrieved from memory - Type: ${type}, Key: ${key}`);
+      return memory[type][key].data;
+    }
+    
+    return null;
+  } catch (error) {
+    Logger.log(`Error retrieving from memory: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * searchMemory - חיפוש בזיכרון לפי סוג וקריטריונים
+ * @param {string} type - סוג המידע לחיפוש
+ * @param {function} filterFn - פונקציית סינון
+ * @return {array} מערך של תוצאות מתאימות
+ */
+function searchMemory(type, filterFn) {
+  try {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    const memory = JSON.parse(scriptProperties.getProperty(CHAT_MEMORY_KEY) || "{}");
+    
+    if (!memory[type]) {
+      return [];
+    }
+    
+    const results = Object.values(memory[type])
+      .filter(item => filterFn(item.data))
+      .map(item => item.data);
+    
+    Logger.log(`Search memory - Type: ${type}, Results: ${results.length}`);
+    return results;
+  } catch (error) {
+    Logger.log(`Error searching memory: ${error}`);
+    return [];
+  }
+}
+
+/**
+ * clearMemoryType - מוחק את כל המידע מסוג מסוים
+ * @param {string} type - סוג המידע למחיקה
+ */
+function clearMemoryType(type) {
+  try {
+    const scriptProperties = PropertiesService.getScriptProperties();
+    let memory = JSON.parse(scriptProperties.getProperty(CHAT_MEMORY_KEY) || "{}");
+    
+    if (memory[type]) {
+      delete memory[type];
+      scriptProperties.setProperty(CHAT_MEMORY_KEY, JSON.stringify(memory));
+      Logger.log(`Cleared memory type: ${type}`);
+    }
+  } catch (error) {
+    Logger.log(`Error clearing memory type: ${error}`);
+  }
+}
+
+/**
+ * testChatMemory - פונקציית בדיקה למערכת הזיכרון
+ */
+function testChatMemory() {
+  Logger.log("=== Testing Chat Memory System ===");
+  
+  // 1. בדיקת שמירה וקריאה בסיסית
+  const testData = {
+    id: "test123",
+    startDate: "2024-03-19T10:00:00",
+    status: "התקיימה",
+    description: "פגישת בדיקה"
+  };
+  
+  Logger.log("\n1. Testing basic save and retrieve:");
+  const saved = saveToMemory(testData, 'meetings', 'test123');
+  Logger.log("Save result: " + saved);
+  
+  const retrieved = getFromMemory('meetings', 'test123');
+  Logger.log("Retrieved data: " + JSON.stringify(retrieved));
+  
+  // 2. בדיקת חיפוש
+  Logger.log("\n2. Testing search functionality:");
+  const searchResults = searchMemory('meetings', 
+    meeting => meeting.status === "התקיימה"
+  );
+  Logger.log("Search results: " + JSON.stringify(searchResults));
+  
+  // 3. בדיקת ניקוי
+  Logger.log("\n3. Testing memory cleanup:");
+  clearMemoryType('meetings');
+  const afterClear = getFromMemory('meetings', 'test123');
+  Logger.log("After clear: " + JSON.stringify(afterClear));
+  
+  Logger.log("\n=== Memory Test Complete ===");
+}
+
+/**
+ * getInstitutionalOrders - שליפת הזמנות מוסדיות בסטטוס מעקב וגבייה והסתיימה
+ * @param {string} startDate - תאריך התחלה בפורמט YYYY-MM-DD (אופציונלי)
+ * @param {string} endDate - תאריך סיום בפורמט YYYY-MM-DD (אופציונלי)
+ * @return {Array} מערך של הזמנות מוסדיות עם פרטיהן
+ */
+function getInstitutionalOrders(startDate, endDate) {
+  Logger.log("getInstitutionalOrders called with date range:", startDate, "to", endDate);
+  
+  var query = [
+    "(pcfsystemfield182 = 10) OR (pcfsystemfield182 = 13)"  // סינון לפי סטטוס מעקב וגבייה (10) או הסתיים (13)
+  ];
+
+  // הוספת סינון לפי טווח תאריכים אם סופקו
+  if (startDate) {
+    query.push("(pcfsystemfield197 >= " + startDate + "T00:00:00)");
+  }
+  if (endDate) {
+    query.push("(pcfsystemfield197 <= " + endDate + "T23:59:59)");
+  }
+
+  var queryPayload = {
+    objecttype: 1005,  // ObjectType עבור הזמנות מוסדיות
+    page_size: 200,
+    page_number: 1,
+    fields: "customobject1005id,name,pcfsystemfield192,pcfsystemfield182,pcfsystemfield181,pcfsystemfield197",  // הוספת שדה תאריך תחילת פעילות
+    query: query.join(" AND ")
+  };
+
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("Error fetching institutional orders");
+    return null;
+  }
+
+  return data.data.Data;
+}
+
+// ... existing code ...
+
+/**
+ * printInstitutionalOrders - מחזירה את ההזמנות המוסדיות בפורמט מתאים לתצוגה
+ * @param {string} startDate - תאריך התחלה בפורמט YYYY-MM-DD (אופציונלי)
+ * @param {string} endDate - תאריך סיום בפורמט YYYY-MM-DD (אופציונלי)
+ * @return {Array} מערך של הזמנות מוסדיות מעובדות לתצוגה
+ */
+function printInstitutionalOrders(startDate, endDate) {
+  const orders = getInstitutionalOrders(startDate, endDate);
+  if (!orders || orders.length === 0) {
+    return [];
+  }
+  
+  return orders.map((order) => {
+    const payment = parseFloat(order.pcfsystemfield192 || 0);
+    const statusNum = order.pcfsystemfield182;
+    let statusText = "";
+    
+    // המרה ממספר לטקסט
+    if (statusNum === "10") {
+      statusText = "מעקב וגבייה";
+    } else if (statusNum === "13") {
+      statusText = "הסתיים";
+    } else {
+      statusText = statusNum;
+    }
+
+    // המרת תאריך הפעילות לפורמט מקומי
+    const activityDate = order.pcfsystemfield197 ? 
+      new Date(order.pcfsystemfield197).toLocaleDateString('he-IL') : 'לא צוין';
+
+    return {
+      Name: order.name || '',
+      OrderId: order.customobject1005id,
+      TotalPayment: payment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      BranchName: getBranchName(order.pcfsystemfield181),
+      Status: statusText,
+      ActivityStartDate: activityDate,
+      RawStatus: statusNum
+    };
+  });
+}
+
+/**
+ * testInstitutionalOrdersWithDateRange - פונקציית בדיקה להזמנות מוסדיות עם טווח תאריכים
+ * @param {string} startDate - תאריך התחלה בפורמט YYYY-MM-DD
+ * @param {string} endDate - תאריך סיום בפורמט YYYY-MM-DD
+ */
+function testInstitutionalOrdersWithDateRange(startDate, endDate) {
+  Logger.log("=== Testing Institutional Orders with Date Range ===");
+  Logger.log("Date Range:", startDate, "to", endDate);
+  
+  const orders = getInstitutionalOrders(startDate, endDate);
+  Logger.log("Raw orders from API:", orders);
+
+  const processedOrders = printInstitutionalOrders(startDate, endDate);
+  Logger.log("Processed orders:", processedOrders);
+
+  // חישוב סכומים לפי סטטוס
+  let totalTracking = 0;
+  let totalCompleted = 0;
+  
+  processedOrders.forEach(order => {
+    const amount = parseFloat(order.TotalPayment.replace(/[₪,\s]/g, ''));
+    Logger.log("Processing order:", {
+      name: order.Name,
+      status: order.Status,
+      activityStartDate: order.ActivityStartDate,
+      amount: amount
+    });
+
+    if (order.RawStatus === "10") {
+      totalTracking += amount;
+    } else if (order.RawStatus === "13") {
+      totalCompleted += amount;
+    }
+  });
+
+  Logger.log("Summary:", {
+    totalOrders: processedOrders.length,
+    tracking: totalTracking.toLocaleString('he-IL'),
+    completed: totalCompleted.toLocaleString('he-IL'),
+    total: (totalTracking + totalCompleted).toLocaleString('he-IL')
+  });
+}
+
+/**
+ * getInstitutionalOrdersByAcademicYear - שליפת הזמנות מוסדיות לפי שנת פעילות
+ * @param {number} year - שנת הפעילות (לדוגמה: 2024 עבור שנת 2024-2025)
+ * @return {Array} מערך של הזמנות מוסדיות עם פרטיהן
+ */
+function getInstitutionalOrdersByAcademicYear(year) {
+  Logger.log("getInstitutionalOrdersByAcademicYear called for year:", year);
+  
+  // חישוב טווח התאריכים לשנת הפעילות
+  var startDate = year + "-09-01";          // 1 בספטמבר של השנה הנוכחית
+  var endDate = (year + 1) + "-06-30";      // 30 ביוני של השנה העוקבת
+
+  var query = [
+    "(pcfsystemfield182 = 10) OR (pcfsystemfield182 = 13)",  // סינון לפי סטטוס מעקב וגבייה (10) או הסתיים (13)
+    "(pcfsystemfield197 >= " + startDate + "T00:00:00)",     // תאריך תחילת פעילות מ-1 בספטמבר
+    "(pcfsystemfield197 <= " + endDate + "T23:59:59)"        // תאריך תחילת פעילות עד 30 ביוני
+  ];
+
+  var queryPayload = {
+    objecttype: 1005,
+    page_size: 200,
+    page_number: 1,
+    fields: "customobject1005id,name,pcfsystemfield192,pcfsystemfield182,pcfsystemfield181,pcfsystemfield197",
+    query: query.join(" AND ")
+  };
+
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("Error fetching institutional orders");
+    return null;
+  }
+
+  return data.data.Data;
+}
+
+/**
+ * printInstitutionalOrdersByAcademicYear - מחזירה את ההזמנות המוסדיות בפורמט מתאים לתצוגה לפי שנת פעילות
+ * @param {number} year - שנת הפעילות (לדוגמה: 2024 עבור שנת 2024-2025)
+ * @return {Array} מערך של הזמנות מוסדיות מעובדות לתצוגה
+ */
+function printInstitutionalOrdersByAcademicYear(year) {
+  const orders = getInstitutionalOrdersByAcademicYear(year);
+  if (!orders || orders.length === 0) {
+    return [];
+  }
+  
+  return orders.map((order) => {
+    const payment = parseFloat(order.pcfsystemfield192 || 0);
+    const statusNum = order.pcfsystemfield182;
+    let statusText = "";
+    
+    // המרה ממספר לטקסט
+    if (statusNum === "10") {
+      statusText = "מעקב וגבייה";
+    } else if (statusNum === "13") {
+      statusText = "הסתיים";
+    } else {
+      statusText = statusNum;
+    }
+
+    // המרת תאריך הפעילות לפורמט מקומי
+    const activityDate = order.pcfsystemfield197 ? 
+      new Date(order.pcfsystemfield197).toLocaleDateString('he-IL') : 'לא צוין';
+
+    return {
+      Name: order.name || '',
+      OrderId: order.customobject1005id,
+      TotalPayment: payment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      BranchName: getBranchName(order.pcfsystemfield181),
+      Status: statusText,
+      ActivityStartDate: activityDate,
+      RawStatus: statusNum,
+      AcademicYear: `${year}-${year + 1}`
+    };
+  });
+}
+
+/**
+ * getCurrentAcademicYear - מחזיר את שנת הפעילות הנוכחית
+ * @return {number} שנת הפעילות הנוכחית
+ */
+function getCurrentAcademicYear() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // getMonth() מחזיר 0-11
+  
+  // אם אנחנו בחודשים יולי או אוגוסט, נחשיב את זה כשנת הפעילות הבאה
+  if (month >= 7) {
+    return year;
+  }
+  return year - 1;
+}
+
+/**
+ * testInstitutionalOrdersForCurrentYear - פונקציית בדיקה להזמנות מוסדיות בשנת הפעילות הנוכחית
+ */
+function testInstitutionalOrdersForCurrentYear() {
+  const currentYear = getCurrentAcademicYear();
+  Logger.log(`=== Testing Institutional Orders for Academic Year ${currentYear}-${currentYear + 1} ===`);
+  
+  const orders = getInstitutionalOrdersByAcademicYear(currentYear);
+  Logger.log("Raw orders from API:", orders);
+
+  const processedOrders = printInstitutionalOrdersByAcademicYear(currentYear);
+  Logger.log("Processed orders:", processedOrders);
+
+  // חישוב סכומים לפי סטטוס
+  let totalTracking = 0;
+  let totalCompleted = 0;
+  
+  processedOrders.forEach(order => {
+    const amount = parseFloat(order.TotalPayment.replace(/[₪,\s]/g, ''));
+    Logger.log("Processing order:", {
+      name: order.Name,
+      status: order.Status,
+      activityStartDate: order.ActivityStartDate,
+      amount: amount
+    });
+
+    if (order.RawStatus === "10") {
+      totalTracking += amount;
+    } else if (order.RawStatus === "13") {
+      totalCompleted += amount;
+    }
+  });
+
+  Logger.log("Summary:", {
+    academicYear: `${currentYear}-${currentYear + 1}`,
+    totalOrders: processedOrders.length,
+    tracking: totalTracking.toLocaleString('he-IL'),
+    completed: totalCompleted.toLocaleString('he-IL'),
+    total: (totalTracking + totalCompleted).toLocaleString('he-IL')
+  });
+}
+
+/**
+ * getDigitalCourseRegistrations - מחזיר את כל ההרשמות לקורסים דיגיטליים
+ * @return {Array} מערך של הרשמות לקורסים דיגיטליים
+ */
+function getDigitalCourseRegistrations() {
+  Logger.log("getDigitalCourseRegistrations called");
+  
+  var queryPayload = {
+    objecttype: 33,  // אובייקט הרשמות
+    page_size: 200,
+    page_number: 1,
+    fields: "accountproductid,accountid,pcfsystemfield129,pcfsystemfield53,statuscode",  // מזהה, שם הרוכש, תאריך הרשמה, קורס, סטטוס
+    query: "statuscode = 8"  // סטטוס נרשם = 8
+  };
+
+  var registrations = [];
+  var pageNumber = 1;
+  var maxPages = 10;
+
+  while (true) {
+    Logger.log("מושך עמוד " + pageNumber + " של הרשמות");
+    queryPayload.page_number = pageNumber;
+    var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+    
+    if (!data || !data.data || !data.data.Data) {
+      Logger.log("שגיאה בקבלת נתוני הרשמות בעמוד " + pageNumber);
+      break;
+    }
+
+    var currentRegistrations = data.data.Data;
+    Logger.log("התקבלו " + currentRegistrations.length + " הרשמות בעמוד " + pageNumber);
+    
+    // סינון רק הרשמות לקורסים דיגיטליים
+    for (var i = 0; i < currentRegistrations.length; i++) {
+      var reg = currentRegistrations[i];
+      var courseId = reg.pcfsystemfield53;
+      if (!courseId) {
+        Logger.log("נמצאה הרשמה ללא מזהה קורס:", reg.accountproductid);
+        continue;
+      }
+
+      // בדיקה אם הקורס הוא דיגיטלי
+      var course = getCourseById(courseId);
+      if (!course) {
+        Logger.log("לא נמצא קורס עם מזהה:", courseId);
+        continue;
+      }
+
+      Logger.log("בודק קורס:", {
+        id: courseId,
+        name: course.name,
+        type: course.pcfsystemfield44
+      });
+
+      if (course.pcfsystemfield44 === "2") { // קורס דיגיטלי
+        Logger.log("נמצא קורס דיגיטלי:", course.name);
+        registrations.push(reg);
+      }
+    }
+
+    if (currentRegistrations.length < queryPayload.page_size || pageNumber >= maxPages) {
+      break;
+    }
+    
+    pageNumber++;
+    Utilities.sleep(300);
+  }
+
+  Logger.log("סך הכל נמצאו " + registrations.length + " הרשמות לקורסים דיגיטליים");
+  return registrations;
+}
+
+/**
+ * getCourseById - מחזיר פרטי קורס לפי מזהה
+ * @param {string} courseId - מזהה הקורס
+ * @return {object} פרטי הקורס
+ */
+function getCourseById(courseId) {
+  if (!courseId) return null;
+  
+  var url = API_URL + "/14/" + courseId;  // אובייקט קורסים = 14
+  var data = sendGetWithRetry(url, MAX_RETRIES, RETRY_DELAY_MS);
+  
+  if (!data || !data.data || !data.data.Record) {
+    Logger.log("Failed to fetch course: " + courseId);
+    return null;
+  }
+  
+  return data.data.Record;
+}
+
+/**
+ * printDigitalCourseRegistrations - מחזיר את ההרשמות בפורמט מתאים לתצוגה
+ * @return {Array} מערך של הרשמות מעובדות לתצוגה
+ */
+function printDigitalCourseRegistrations() {
+  const registrations = getDigitalCourseRegistrations();
+  if (!registrations || registrations.length === 0) {
+    return [];
+  }
+  
+  return registrations.map((reg) => {
+    const course = getCourseById(reg.pcfsystemfield53);
+    const registrationDate = reg.pcfsystemfield129 ? 
+      new Date(reg.pcfsystemfield129).toLocaleDateString('he-IL') : 'לא צוין';
+
+    return {
+      RegistrationId: reg.accountproductid,
+      BuyerName: reg.accountid || 'לא ידוע',
+      CourseName: course ? course.name : 'לא ידוע',
+      RegistrationDate: registrationDate,
+      CourseId: reg.pcfsystemfield53
+    };
+  });
+}
+
+/**
+ * testDigitalCourseRegistrations - פונקציית בדיקה להרשמות לקורסים דיגיטליים
+ * בודקת את הפרמטרים של הקריאה ומדפיסה את התוצאות לבדיקה
+ */
+function testDigitalCourseRegistrations() {
+  Logger.log("=== בדיקת הרשמות לקורסים דיגיטליים ===");
+  
+  // שליפת כל ההרשמות
+  var queryPayload = {
+    objecttype: 33,  // אובייקט הרשמות
+    page_size: 200,
+    page_number: 1,
+    fields: "accountproductid,accountid,pcfsystemfield129,pcfsystemfield53,statuscode",
+    query: "statuscode = 8"  // סטטוס נרשם = 8
+  };
+  
+  Logger.log("שולח בקשה עם הפרמטרים:", queryPayload);
+  
+  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+  if (!data || !data.data || !data.data.Data) {
+    Logger.log("שגיאה בקבלת נתוני הרשמות:", data);
+    return;
+  }
+  
+  Logger.log("מספר הרשמות שהתקבלו:", data.data.Data.length);
+  
+  // בדיקת כל הרשמה
+  data.data.Data.forEach(function(registration) {
+    Logger.log("\nבדיקת הרשמה:", registration.accountproductid);
+    Logger.log("שם הרוכש:", registration.accountid);
+    
+    // שליפת פרטי הקורס
+    var courseId = registration.pcfsystemfield53;
+    Logger.log("מזהה קורס:", courseId);
+    
+    var course = getCourseById(courseId);
+    if (course) {
+      Logger.log("פרטי הקורס:", {
+        id: course.customobject14id,
+        name: course.name,
+        type: course.pcfsystemfield44  // סוג הקורס
+      });
+    } else {
+      Logger.log("לא נמצא קורס עם מזהה:", courseId);
+    }
+    
+    Logger.log("תאריך הרשמה:", registration.pcfsystemfield129);
+    Logger.log("סטטוס:", registration.statuscode);
+  });
 }
