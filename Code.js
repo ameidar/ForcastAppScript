@@ -151,7 +151,10 @@ function calcMonthlyForecastSS(monthStr, sivug) {
   var endDateStr = toIsoString(endDate);
 
   // שליפת כל הפגישות לחודש
-  var allMeetings = getMeetingsForRange(startDateStr, endDateStr);
+  //var allMeetings = getMeetingsForRange(startDateStr, endDateStr);
+  var allMeetings = getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr);
+
+  
   Logger.log("Total monthly meetings: " + allMeetings.length);
 
   // עיבוד הפגישות לפי סוג הסיווג המבוקש
@@ -2188,8 +2191,8 @@ function testPastMeetingsDebug() {
 }
 
 function testCompareMonthlyForecast_March_April_2025() {
-  var month1 = "2025-02";  // March 2025
-  var month2 = "2025-03";  // April 2025
+  var month1 = "2025-04";  // March 2025
+  var month2 = "2025-05";  // April 2025
   
   // Call the function that compares monthly forecasts by branch.
   var result = compareMonthlyForecastByBranch(month1, month2);
@@ -2734,7 +2737,7 @@ function getMeetingDetails(meetingId) {
  * @param {object} params - פרמטרים לחיפוש (תאריכים, סטטוס, מדריך, מחזור וכו')
  * @return {Array} מערך של פגישות שנמצאו
  */
-function searchMeetings(params) {
+/*function searchMeetings(params) {
   Logger.log("searchMeetings called with params: " + JSON.stringify(params));
   
   var query = [];
@@ -2805,14 +2808,121 @@ function searchMeetings(params) {
     Logger.log("Processed meeting: " + meeting.activityid);
     return details;
   });
+}*/
+
+/**
+ * searchMeetings - מחפש פגישות לפי פרמטרים חכמים כולל תאריכים, סטטוס, מדריך, מחזור
+ * @param {object} params - אובייקט עם startDate, endDate, status, guideId, cycleId
+ * @return {Array<object>} רשימת פגישות כולל פרטים מלאים
+ */
+function searchMeetings(params) {
+  Logger.log("🔍 searchMeetings called with params: " + JSON.stringify(params));
+
+  const query = [];
+
+  // טווח תאריכים
+  if (params.startDate) {
+    Logger.log("➕ Filtering from startDate: " + params.startDate);
+    query.push(`(scheduledstart >= ${params.startDate})`);
+  }
+  if (params.endDate) {
+    Logger.log("➕ Filtering until endDate: " + params.endDate);
+    query.push(`(scheduledstart < ${params.endDate})`);
+  }
+
+  // סטטוס
+  if (params.status) {
+    Logger.log("🎯 Filtering by status: " + params.status);
+    switch (params.status) {
+      case "פעיל":
+        query.push("(statuscode is-null)");
+        break;
+      case "התקיימה":
+        query.push("((statuscode = 'התקיימה') OR (statuscode = '3'))");
+        break;
+      case "בוטלה":
+        query.push("((statuscode = 'בוטלה') OR (statuscode = '1'))");
+        break;
+      case "נדחתה":
+        query.push("((statuscode = 'נדחתה') OR (statuscode = '4'))");
+        break;
+      case "לא בשימוש":
+        query.push("((statuscode = 'לא בשימוש') OR (statuscode = '2'))");
+        break;
+      default:
+        Logger.log("⚠️ סטטוס לא מוכר: " + params.status);
+        break;
+    }
+  }
+
+  // סינון לפי מדריך
+  if (params.guideId) {
+    Logger.log("👨‍🏫 Filtering by guideId: " + params.guideId);
+    query.push(`(pcfsystemfield485 = '${params.guideId}')`);
+  }
+
+  // סינון לפי מחזור
+  if (params.cycleId) {
+    Logger.log("🔁 Filtering by cycleId: " + params.cycleId);
+    query.push(`(pcfsystemfield498 = '${params.cycleId}')`);
+  }
+
+  // חובה שיהיה מחזור בכלל הפגישה
+  query.push("(pcfsystemfield498 is-not-null)");
+
+  const allMeetings = [];
+  let pageNumber = 1;
+  const pageSize = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    const payload = {
+      objecttype: 6, // meetings
+      page_size: pageSize,
+      page_number: pageNumber,
+      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560",
+      query: query.join(" AND ")
+    };
+
+    Logger.log("📤 Request payload (page " + pageNumber + "): " + JSON.stringify(payload));
+
+    const response = sendRequestWithRetry(QUERY_API_URL, payload, MAX_RETRIES, RETRY_DELAY_MS);
+
+    if (!response || !response.data || !response.data.Data || response.data.Data.length === 0) {
+      Logger.log("📭 No more results at page " + pageNumber);
+      hasMore = false;
+      break;
+    }
+
+    const batch = response.data.Data;
+    Logger.log("✅ Received " + batch.length + " meetings at page " + pageNumber);
+
+    // שליפת פרטים מלאים לכל פגישה
+    batch.forEach(meeting => {
+      try {
+        const details = getMeetingDetails(meeting.activityid);
+        allMeetings.push(details);
+      } catch (e) {
+        Logger.log("⚠️ Failed to get details for meeting " + meeting.activityid + ": " + e.message);
+      }
+    });
+
+    // בדיקה אם יש עמוד נוסף
+    hasMore = batch.length === pageSize;
+    pageNumber++;
+  }
+
+  Logger.log("📦 סך הכל פגישות שנמצאו: " + allMeetings.length);
+  return allMeetings;
 }
+
 
 /**
  * processChatQuery - מעבד שאילתת צ'אט ומחזיר תשובה
  * @param {string} query - השאילתה מהמשתמש
  * @return {object} תשובת הצ'אטבוט
  */
-function processChatQuery(query) {
+/*function processChatQuery(query) {
   Logger.log("processChatQuery called with query: " + query);
   
   try {
@@ -2931,7 +3041,7 @@ Make the response as brief as possible while still being clear and accurate.`;
       data: null
     };
   }
-}
+}*/
 
 /**
  * cleanJsonResponse - מנקה את התשובה מ-OpenAI ומוודא שהיא JSON תקין
@@ -3747,12 +3857,30 @@ function testInstitutionalOrdersForCurrentYear() {
 function getDigitalCourseRegistrations() {
   Logger.log("getDigitalCourseRegistrations called");
   
+  // רשימת כל הקורסים הדיגיטליים
+  const digitalCourseIds = [
+    'bff69014-d01d-40d8-b141-95eda8783bc9',  // Roblox Digital
+    '8337ed35-b0b5-4009-b859-10aab3f10065',  // Minecraft Blocks Digital
+    '91db1aff-f12c-4346-83c9-90700374ac8b',  // Minecraft Mods Digital
+    'e3ff1b75-c80f-418c-97b0-36b2b82f1d82',  // Python Pygame Digital
+    '2009d42c-e136-461d-8ae3-a5b0e36471ee',  // Scratch Digital
+    '6f86583b-775a-4566-8d95-e7e064c60025',  // Minecraft Plugins Digital
+    'd2f8a6d6-8267-4a6a-a892-8f8e87536251',  // Minecraft JavaScript Digital
+    '201ad59c-3d09-4ad7-9e41-983c0a423609',  // Discord Bots Digital - Node.js
+    'fac004e0-6978-4446-b854-63153cdc4878'   // Fullstack AI Digital
+  ];
+
+  // בניית תנאי החיפוש עבור כל הקורסים
+  const courseConditions = digitalCourseIds.map(id => 
+    `(productid = '${id}')`
+  ).join(" OR ");
+
   var queryPayload = {
-    objecttype: 33,  // אובייקט הרשמות
+    objecttype: 33,
     page_size: 200,
     page_number: 1,
-    fields: "accountproductid,accountid,pcfsystemfield129,pcfsystemfield53,statuscode",  // מזהה, שם הרוכש, תאריך הרשמה, קורס, סטטוס
-    query: "statuscode = 8"  // סטטוס נרשם = 8
+    fields: "accountproductid,accountid,pcfsystemfield129,productid,statuscode,pcfsystemfield289",
+    query: `(statuscode = 8) AND (${courseConditions})`  // סטטוס נרשם = 8 וקורס דיגיטלי כלשהו
   };
 
   var registrations = [];
@@ -3772,33 +3900,7 @@ function getDigitalCourseRegistrations() {
     var currentRegistrations = data.data.Data;
     Logger.log("התקבלו " + currentRegistrations.length + " הרשמות בעמוד " + pageNumber);
     
-    // סינון רק הרשמות לקורסים דיגיטליים
-    for (var i = 0; i < currentRegistrations.length; i++) {
-      var reg = currentRegistrations[i];
-      var courseId = reg.pcfsystemfield53;
-      if (!courseId) {
-        Logger.log("נמצאה הרשמה ללא מזהה קורס:", reg.accountproductid);
-        continue;
-      }
-
-      // בדיקה אם הקורס הוא דיגיטלי
-      var course = getCourseById(courseId);
-      if (!course) {
-        Logger.log("לא נמצא קורס עם מזהה:", courseId);
-        continue;
-      }
-
-      Logger.log("בודק קורס:", {
-        id: courseId,
-        name: course.name,
-        type: course.pcfsystemfield44
-      });
-
-      if (course.pcfsystemfield44 === "2") { // קורס דיגיטלי
-        Logger.log("נמצא קורס דיגיטלי:", course.name);
-        registrations.push(reg);
-      }
-    }
+    registrations = registrations.concat(currentRegistrations);
 
     if (currentRegistrations.length < queryPayload.page_size || pageNumber >= maxPages) {
       break;
@@ -3833,27 +3935,76 @@ function getCourseById(courseId) {
 
 /**
  * printDigitalCourseRegistrations - מחזיר את ההרשמות בפורמט מתאים לתצוגה
- * @return {Array} מערך של הרשמות מעובדות לתצוגה
+ * @return {object} אובייקט המכיל את סיכום ההרשמות ופרטיהן
  */
 function printDigitalCourseRegistrations() {
   const registrations = getDigitalCourseRegistrations();
   if (!registrations || registrations.length === 0) {
-    return [];
+    Logger.log("לא נמצאו הרשמות לקורסים דיגיטליים");
+    return {
+      totalPayment: 0,
+      registrations: []
+    };
   }
   
-  return registrations.map((reg) => {
-    const course = getCourseById(reg.pcfsystemfield53);
+  Logger.log(`נמצאו ${registrations.length} הרשמות לקורסים דיגיטליים`);
+  
+  // מיון ההרשמות לפי תאריך - מהחדש לישן
+  registrations.sort((a, b) => {
+    const dateA = a.pcfsystemfield129 ? new Date(a.pcfsystemfield129) : new Date(0);
+    const dateB = b.pcfsystemfield129 ? new Date(b.pcfsystemfield129) : new Date(0);
+    return dateB - dateA; // סדר יורד - מהחדש לישן
+  });
+  
+  // חישוב סכום התשלומים הכולל
+  const totalPayment = registrations.reduce((sum, reg) => {
+    const payment = parseFloat(reg.pcfsystemfield289 || 0);
+    return sum + payment;
+  }, 0);
+  
+  Logger.log(`סכום התשלומים הכולל: ${totalPayment.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' })}`);
+  
+  const processedRegistrations = registrations.map((reg, index) => {
+    // שליפת פרטי הלקוח
+    const customer = getCustomerById(reg.accountid);
+    const customerName = customer ? customer.accountname : 'לא ידוע';
+    
+    // שליפת פרטי הקורס
+    const course = getCourseById(reg.productid);
+    const courseName = course ? course.name : 'לא ידוע';
+    
+    // פורמט התאריך
     const registrationDate = reg.pcfsystemfield129 ? 
       new Date(reg.pcfsystemfield129).toLocaleDateString('he-IL') : 'לא צוין';
+    
+    // פורמט התשלום
+    const payment = parseFloat(reg.pcfsystemfield289 || 0);
+    const formattedPayment = payment.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+
+    // הדפסת פרטי ההרשמה ללוג
+    Logger.log(`\n=== הרשמה מספר ${index + 1} ===`);
+    Logger.log(`מזהה הרשמה: ${reg.accountproductid}`);
+    Logger.log(`שם הרוכש: ${customerName}`);
+    Logger.log(`מזהה לקוח: ${reg.accountid}`);
+    Logger.log(`שם הקורס: ${courseName}`);
+    Logger.log(`תאריך הרשמה: ${registrationDate}`);
+    Logger.log(`סכום: ${formattedPayment}`);
 
     return {
-      RegistrationId: reg.accountproductid,
-      BuyerName: reg.accountid || 'לא ידוע',
-      CourseName: course ? course.name : 'לא ידוע',
-      RegistrationDate: registrationDate,
-      CourseId: reg.pcfsystemfield53
+      serialNumber: index + 1,
+      registrationId: reg.accountproductid || '',
+      buyerName: customerName,
+      courseName: courseName,
+      registrationDate: registrationDate,
+      payment: formattedPayment,
+      rawDate: reg.pcfsystemfield129 || ''
     };
   });
+
+  return {
+    totalPayment: totalPayment,
+    registrations: processedRegistrations
+  };
 }
 
 /**
@@ -3868,7 +4019,7 @@ function testDigitalCourseRegistrations() {
     objecttype: 33,  // אובייקט הרשמות
     page_size: 200,
     page_number: 1,
-    fields: "accountproductid,accountid,pcfsystemfield129,pcfsystemfield53,statuscode",
+    fields: "accountproductid,accountid,pcfsystemfield129,productid,statuscode",
     query: "statuscode = 8"  // סטטוס נרשם = 8
   };
   
@@ -3888,7 +4039,7 @@ function testDigitalCourseRegistrations() {
     Logger.log("שם הרוכש:", registration.accountid);
     
     // שליפת פרטי הקורס
-    var courseId = registration.pcfsystemfield53;
+    var courseId = registration.productid;
     Logger.log("מזהה קורס:", courseId);
     
     var course = getCourseById(courseId);
@@ -3906,3 +4057,273 @@ function testDigitalCourseRegistrations() {
     Logger.log("סטטוס:", registration.statuscode);
   });
 }
+
+/**
+ * processChatQuery - מבצע עיבוד חכם של שאלה מהמשתמש עם שילוב GPT + Fireberry
+ * @param {string} query - השאלה של המשתמש
+ * @return {object} תשובה מוכנה לתצוגה
+ */
+function processChatQuery(query) {
+  Logger.log("processChatQuery called with query: " + query);
+
+  try {
+    // שלב 1: ניתוח השאלה
+    const analysisPrompt = `You are an AI assistant for a meeting management system that uses Fireberry API.
+Your task is to analyze the user's query and determine the appropriate time range and filters for searching meetings.
+
+User query in Hebrew: "${query}"
+Current date and time: ${new Date().toISOString()}
+
+Return only a valid JSON in this exact format:
+{
+  "queryType": "time_range" | "specific_meetings" | "need_clarification",
+  "timeRange": {
+    "startDate": "YYYY-MM-DDT00:00:00",
+    "endDate": "YYYY-MM-DDT23:59:59"
+  },
+  "filters": {
+    "status": null | "התקיימה" | "בוטלה" | "נדחתה" | "לא בשימוש" | "פעיל",
+    "guideId": null | "string",
+    "cycleId": null | "string"
+  },
+  "clarificationNeeded": false | true,
+  "clarificationQuestion": "string" | null,
+  "explanation": "string",
+  "useMemory": boolean
+}`;
+
+    const analysisResponse = callOpenAIApi(analysisPrompt);
+    const analysis = JSON.parse(cleanJsonResponse(analysisResponse));
+    Logger.log("Analysis JSON: " + JSON.stringify(analysis));
+
+    if (analysis.clarificationNeeded) {
+      return {
+        success: true,
+        answer: analysis.clarificationQuestion,
+        needsClarification: true
+      };
+    }
+
+    // שלב 2: הגדרת פרמטרי חיפוש
+    const searchParams = {
+      startDate: analysis.timeRange.startDate,
+      endDate: analysis.timeRange.endDate,
+      ...analysis.filters
+    };
+
+    // שלב 3: חיפוש בזיכרון
+    let memorizedMeetings = [];
+    if (analysis.useMemory) {
+      memorizedMeetings = searchMemory("meetings", meeting => {
+        const meetingDate = new Date(meeting.startDate);
+        const start = new Date(searchParams.startDate);
+        const end = new Date(searchParams.endDate);
+        return meetingDate >= start && meetingDate <= end &&
+          (!searchParams.status || meeting.status === searchParams.status);
+      });
+    }
+
+  Logger.log("📌 Search parameters:");
+  Logger.log(JSON.stringify(searchParams, null, 2));
+  if (analysis.filters.guideId) {
+  const mappedId = mapGuideNameToId(analysis.filters.guideId);
+  if (mappedId) {
+    searchParams.guideId = mappedId;
+  } else {
+    Logger.log("⚠️ לא נמצא מזהה מדריך עבור: " + analysis.filters.guideId);
+    return {
+      success: false,
+      answer: "לא זיהיתי את המדריך '" + analysis.filters.guideId + "'.",
+      data: null
+    };
+  }
+}
+
+  
+
+
+    // שלב 4: חיפוש בפיירברי
+    const currentMeetings = searchMeetings(searchParams);
+
+    // שלב 5: שמירה לזיכרון
+    currentMeetings.forEach(meeting => {
+      saveToMemory(meeting, "meetings", `${meeting.id}_${meeting.startDate}`);
+    });
+
+    // שלב 6: איחוד כל התוצאות
+    const allMeetings = [...currentMeetings];
+    memorizedMeetings.forEach(memMeeting => {
+      if (!allMeetings.some(m => m.id === memMeeting.id)) {
+        allMeetings.push(memMeeting);
+      }
+    });
+
+    // תמיד לצרף את המידע הקיים ב־memory לפלט של GPT
+        // שלב 7: ניסוח תשובה מותאמת
+
+var responsePrompt = `
+You are a helpful assistant for a meeting management system.
+Analyze these meetings and provide a VERY CONCISE response in Hebrew.
+
+User query: "${query}"
+Analysis explanation: ${analysis.explanation}
+Time range analyzed: ${analysis.timeRange.startDate} to ${analysis.timeRange.endDate}
+
+Meetings data (current + memory): ${JSON.stringify(allMeetings)}
+Guidelines:
+- Answer only in Hebrew
+- Keep it extremely short and accurate
+- Don't list meetings unless explicitly asked
+- Give totals or filtered insights only if relevant`;
+;
+
+
+    
+
+    const formattedResponse = callOpenAIApi(responsePrompt);
+
+    return {
+      success: true,
+      answer: formattedResponse.trim(),
+      data: allMeetings,
+      analysis: analysis
+    };
+
+  } catch (error) {
+    Logger.log("Error in processChatQuery: " + error);
+    return {
+      success: false,
+      answer: "מצטער, קרתה תקלה: " + error.message,
+      data: null
+    };
+  }
+}
+
+function getAllGuidesList() {
+  const allGuides = [];
+  let page = 1;
+  const pageSize = 100;
+  let hasMore = true;
+
+  while (hasMore) {
+    const payload = {
+      objecttype: 1002,
+      page_size: pageSize,
+      page_number: page,
+      fields: "customobject1002id,name"
+    };
+
+    const data = sendRequestWithRetry(QUERY_API_URL, payload, MAX_RETRIES, RETRY_DELAY_MS);
+    const records = (data?.data?.Data) || [];
+
+    Logger.log(`📦 דף ${page} - ${records.length} מדריכים`);
+
+    if (records.length === 0) {
+      hasMore = false;
+    } else {
+      allGuides.push(...records.map(g => ({
+        id: g.customobject1002id,
+        name: g.name
+      })));
+      page++;
+    }
+  }
+
+  return allGuides;
+}
+
+
+
+/**
+ * mapGuideNameToId - מחזיר מזהה מדריך לפי שם, מתוך רשימת המדריכים הדינאמית
+ * @param {string} name - שם המדריך
+ * @return {string|null} מזהה מדריך או null אם לא נמצא
+ */
+function mapGuideNameToId(name) {
+  const guides = getAllGuidesList();
+  Logger.log("📋 רשימת מדריכים נטענה (סה״כ: " + guides.length + "):");
+  guides.forEach(g => Logger.log(`👤 ${g.name} | ${g.id}`));
+
+  
+
+  const guide = guides.find(g => g.name.trim() === name.trim());
+  return guide ? guide.id : null;
+}
+
+
+
+function askOpenAI(prompt, memory = []) {
+  const apiKey = OPENAI_API_KEY;
+  const url = "https://api.openai.com/v1/chat/completions";
+
+  const messages = memory.concat([{ role: "user", content: prompt }]);
+
+  const payload = {
+    model: "gpt-4",
+    messages: messages,
+    temperature: 0.7
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    headers: {
+      Authorization: "Bearer " + apiKey
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(url, options);
+  const json = JSON.parse(response.getContentText());
+  const reply = json.choices[0].message.content.trim();
+
+  return {
+    answer: reply,
+    updatedMemory: messages.concat([{ role: "assistant", content: reply }])
+  };
+}
+
+
+/**
+ * getCustomerById - מחזיר את פרטי הלקוח לפי מזהה
+ * @param {string} customerId - מזהה הלקוח
+ * @return {object} פרטי הלקוח
+ */
+function getCustomerById(customerId) {
+  if (!customerId) return null;
+  
+  var url = API_URL + "/1/" + customerId;  // אובייקט לקוחות = 1
+  var data = sendGetWithRetry(url, MAX_RETRIES, RETRY_DELAY_MS);
+  
+  if (!data || !data.data || !data.data.Record) {
+    Logger.log("Failed to fetch customer: " + customerId);
+    return null;
+  }
+  
+  return data.data.Record;
+}
+
+function debugChatQueryTest() {
+  const testQuery = "כמה פגישות היו עם עמי מידר בחודש מרץ?";
+  Logger.log("🚀 Running debug for query: " + testQuery);
+
+  const result = processChatQuery(testQuery);
+
+  Logger.log("🧠 תשובת GPT:");
+  Logger.log(result.answer);
+
+  Logger.log("📌 ניתוח GPT:");
+  Logger.log(JSON.stringify(result.analysis, null, 2));
+
+  Logger.log("📦 כמות פגישות שנמצאו:");
+  Logger.log(result.data ? result.data.length : 0);
+
+  if (result.data && result.data.length > 0) {
+    Logger.log("📋 דוגמה לפגישה:");
+    Logger.log(JSON.stringify(result.data[0], null, 2));
+  }
+
+  return result;
+}
+

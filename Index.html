@@ -479,6 +479,16 @@
         <div id="digitalRegistrationsResults"></div>
       </div>
 
+      <!-- הוספת אזור חדש לחיפוש קורסים -->
+      <div class="section" id="courseSearchSection">
+        <h2>חיפוש קורסים</h2>
+        <div class="button-group">
+          <input type="text" id="courseSearchInput" placeholder="הקלד שם קורס לחיפוש...">
+          <button id="searchCoursesBtn" onclick="searchCourses()">חפש קורסים</button>
+        </div>
+        <div id="courseSearchResults"></div>
+      </div>
+
     </div>
     
     <!-- Toast notification -->
@@ -879,26 +889,36 @@
             return;
           }
           let html = "<h3>תחזית: " + title + "</h3>";
-          html += "סך הכנסה: " + (response.totalRevenue || 0).toFixed(2) + "<br>";
-          html += "סך הוצאה: " + (response.totalCost || 0).toFixed(2) + "<br><br>";
+          html += "סך הכנסה: ₪" + (response.totalRevenue || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+          html += "סך הוצאה: ₪" + (response.totalCost || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+          const profit = (response.totalRevenue || 0) - (response.totalCost || 0);
+          html += "סך רווח: ₪" + profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br><br>";
           
           if (sivug === "cycle" && response.privateCount !== undefined) {
             html += "<h4>סיווג לפי סוג מחזור:</h4>";
-            html += "פרטי: " + response.privateCount + " מפגשים, הכנסה: " + (response.privateSum || 0).toFixed(2) + "<br>";
-            html += "מוסדי: " + response.mosediCount + " מפגשים, הכנסה: " + (response.mosediSum || 0).toFixed(2) + "<br>";
-            html += "מוסדי פר ילד: " + response.mosediChildCount + " מפגשים, הכנסה: " + (response.mosediChildSum || 0).toFixed(2) + "<br>";
+            html += "פרטי: " + response.privateCount + " מפגשים, הכנסה: ₪" + 
+                   (response.privateSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+            html += "מוסדי: " + response.mosediCount + " מפגשים, הכנסה: ₪" + 
+                   (response.mosediSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+            html += "מוסדי פר ילד: " + response.mosediChildCount + " מפגשים, הכנסה: ₪" + 
+                   (response.mosediChildSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
           } else if (sivug === "lesson" && response.frontaliCount !== undefined) {
             html += "<h4>סיווג לפי סוג ההדרכה:</h4>";
-            html += "שיעור פרונטאלי: " + response.frontaliCount + " מפגשים, הכנסה: " + (response.frontaliSum || 0).toFixed(2) + "<br>";
-            html += "שיעור פרטי: " + response.privateLessonCount + " מפגשים, הכנסה: " + (response.privateLessonSum || 0).toFixed(2) + "<br>";
-            html += "אונליין קבוצתי: " + response.onlineCount + " מפגשים, הכנסה: " + (response.onlineSum || 0).toFixed(2) + "<br>";
-            html += "תמיכה: " + response.supportCount + " מפגשים, הכנסה: " + (response.supportSum || 0).toFixed(2) + "<br>";
+            html += "שיעור פרונטאלי: " + response.frontaliCount + " מפגשים, הכנסה: ₪" + 
+                   (response.frontaliSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+            html += "שיעור פרטי: " + response.privateLessonCount + " מפגשים, הכנסה: ₪" + 
+                   (response.privateLessonSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+            html += "אונליין קבוצתי: " + response.onlineCount + " מפגשים, הכנסה: ₪" + 
+                   (response.onlineSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+            html += "תמיכה: " + response.supportCount + " מפגשים, הכנסה: ₪" + 
+                   (response.supportSum || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
           } else if (sivug === "branch" && response.branchDetails) {
             html += "<h4>סיווג לפי סניף:</h4>";
             html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
             html += "<tr><th>סניף</th><th>מפגשים</th><th>הכנסה</th></tr>";
             response.branchDetails.forEach(function(bd) {
-              html += "<tr><td>" + bd.branchName + "</td><td>" + bd.count + "</td><td>" + (bd.sumRevenue || 0).toFixed(2) + "</td></tr>";
+              html += "<tr><td>" + bd.branchName + "</td><td>" + bd.count + "</td><td>₪" + 
+                     (bd.sumRevenue || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "</td></tr>";
             });
             html += "</table>";
           }
@@ -1086,22 +1106,22 @@
 
       function displayCycles(cycles, title) {
         let html = "<h3>" + title + "</h3>";
-        html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
-        html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
-        
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+            html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
+            
         cycles.forEach((cycle, index) => {
-          html += "<tr>";
-          html += "<td>" + (index + 1) + "</td>";
-          
+              html += "<tr>";
+              html += "<td>" + (index + 1) + "</td>";
+              
           const cycleId = cycle.CycleId || cycle.customobject1000id || '';
-          if (cycleId) {
+              if (cycleId) {
             html += "<td><a href='https://app.fireberry.com/app/record/1000/" + cycleId + 
                    "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
                    cycle.Name + "</a></td>";
-          } else {
-            html += "<td>" + cycle.Name + "</td>";
-          }
-          
+              } else {
+                html += "<td>" + cycle.Name + "</td>";
+              }
+              
           // תאריך התחלה
           const startDate = cycle.StartDate || cycle.pcfsystemfield33;
           const startDt = startDate ? new Date(startDate) : null;
@@ -1285,7 +1305,7 @@
               enableForecastButtons();
               return;
             }
-
+            
             let html = "<h3>מחזורים עם פער בין תאריך סיום לפגישה אחרונה</h3>";
             html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
             html += "<tr><th>מס'</th><th>שם המחזור</th><th>תאריך סיום מתוכנן</th><th>תאריך פגישה אחרונה</th><th>פער בימים</th><th>פעולות</th></tr>";
@@ -1353,7 +1373,7 @@
               showNotification("תאריך הסיום עודכן בהצלחה");
               // רענון הטבלה
               showCycleEndDateComparison();
-            } else {
+              } else {
               showNotification("שגיאה בעדכון תאריך הסיום: " + result.message);
             }
           })
@@ -1452,51 +1472,35 @@
           .withSuccessHandler(function(response) {
             document.getElementById("loadingSpinner").style.display = "none";
             
-            if (!response || response.length === 0) {
+            if (!response || !response.registrations || response.registrations.length === 0) {
               document.getElementById("digitalRegistrationsResults").innerHTML = "לא נמצאו הרשמות לקורסים דיגיטליים";
               enableForecastButtons();
               return;
             }
-
-            // מיון ההרשמות לפי תאריך הרשמה מהחדש לישן
-            response.sort((a, b) => {
-              const dateA = new Date(a.RegistrationDate.split('/').reverse().join('-'));
-              const dateB = new Date(b.RegistrationDate.split('/').reverse().join('-'));
-              return dateB - dateA;
-            });
-
-            // חישוב סך כל התשלומים
-            let totalPayment = response.reduce((sum, reg) => {
-              return sum + parseFloat(reg.Payment.replace(/[₪,\s]/g, ''));
-            }, 0);
 
             let html = "<h3>הרשמות לקורסים דיגיטליים</h3>";
             
             // הצגת סיכום
             html += "<div style='margin-bottom: 20px;'>";
             html += "<div style='padding: 10px; background-color: rgba(0, 123, 255, 0.1); border-radius: 5px;'>";
-            html += "<p><strong>סך כל ההרשמות: " + response.length + "</strong></p>";
+            html += "<p><strong>סך כל ההרשמות: " + response.registrations.length + "</strong></p>";
             html += "<p><strong>סך כל התשלומים: ₪" + 
-                   totalPayment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 
+                   response.totalPayment.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 
                    "</strong></p>";
             html += "</div>";
             html += "</div>";
 
             // הצגת טבלת ההרשמות
             html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
-            html += "<tr><th>מס'</th><th>שם הקורס</th><th>תאריך הרשמה</th><th>תשלום</th></tr>";
+            html += "<tr><th>מס'</th><th>שם הנרשם</th><th>שם הקורס</th><th>תאריך הרשמה</th><th>תשלום</th></tr>";
             
-            response.forEach((reg, index) => {
+            response.registrations.forEach((reg) => {
               html += "<tr>";
-              html += "<td>" + (index + 1) + "</td>";
-              
-              // שם הקורס עם לינק
-              html += "<td><a href='https://app.fireberry.com/app/record/14/" + reg.CourseId + 
-                     "' target='_blank' style='color: #00eaff; text-decoration: underline;'>" + 
-                     reg.CourseName + "</a></td>";
-              
-              html += "<td>" + reg.RegistrationDate + "</td>";
-              html += "<td>₪" + reg.Payment + "</td>";
+              html += "<td>" + reg.serialNumber + "</td>";
+              html += "<td>" + reg.buyerName + "</td>";
+              html += "<td>" + reg.courseName + "</td>";
+              html += "<td>" + reg.registrationDate + "</td>";
+              html += "<td>" + reg.payment + "</td>";
               html += "</tr>";
             });
             
@@ -1510,6 +1514,48 @@
             enableForecastButtons();
           })
           .printDigitalCourseRegistrations();
+      }
+
+      function searchCourses() {
+        disableForecastButtons();
+        document.getElementById("loadingSpinner").style.display = "block";
+        document.getElementById("courseSearchResults").innerHTML = "";
+        
+        const searchTerm = document.getElementById("courseSearchInput").value;
+        
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            
+            if (!response || response.length === 0) {
+              document.getElementById("courseSearchResults").innerHTML = "לא נמצאו קורסים התואמים לחיפוש";
+              enableForecastButtons();
+              return;
+            }
+
+            let html = "<h3>תוצאות חיפוש קורסים</h3>";
+            html += "<table border='1' cellpadding='5' cellspacing='0' style='width:100%;'>";
+            html += "<tr><th>שם הקורס</th><th>מזהה</th><th>סוג</th><th>תעריף</th></tr>";
+            
+            response.forEach((course) => {
+              html += "<tr>";
+              html += "<td>" + course.Name + "</td>";
+              html += "<td>" + course.CourseId + "</td>";
+              html += "<td>" + course.Type + "</td>";
+              html += "<td>" + course.Rate + "</td>";
+              html += "</tr>";
+            });
+            
+            html += "</table>";
+            document.getElementById("courseSearchResults").innerHTML = html;
+            enableForecastButtons();
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById("loadingSpinner").style.display = "none";
+            document.getElementById("courseSearchResults").innerHTML = "שגיאה בחיפוש קורסים: " + err;
+            enableForecastButtons();
+          })
+          .printCoursesByName(searchTerm);
       }
 
     </script>
