@@ -84,48 +84,7 @@ function calcDailyForecastSS(dayStr) {
   return processMeetingsInBatches(allMeetings);
 }
 
-/***************************************************
- * calcMonthlyForecastSS – חישוב חודשי
- ***************************************************/
-/*function calcMonthlyForecastSS(monthStr) {
-  Logger.log("calcMonthlyForecastSS called: " + monthStr);
-  var parts = monthStr.split("-");
-  var chosenYear = parseInt(parts[0], 10);
-  var chosenMon = parseInt(parts[1], 10);
-  var startDate = new Date(chosenYear, chosenMon - 1, 1, 0, 0, 0);
-  var endDate = new Date(chosenYear, chosenMon, 1, 0, 0, 0);
-  var startDateStr = toIsoString(startDate);
-  var endDateStr = toIsoString(endDate);
-  
-  // First try to get all meetings at once
-  var allMeetings = getMeetingsForRange(startDateStr, endDateStr);
-  
-  // If we get too many meetings or encounter errors, process by week instead
-  if (allMeetings.length > 5000 || allMeetings.length === 0) {
-    Logger.log("Large dataset detected, processing by week");
-    return processLargeMonthByWeeks(chosenYear, chosenMon);
-  }
-  
-  Logger.log("Total monthly meetings: " + allMeetings.length);
-  var totalRevenue = 0;
-  var totalCost = 0;
-  
-  // Process in batches of 1000 meetings
-  var batchSize = 1000;
-  for (var i = 0; i < allMeetings.length; i += batchSize) {
-    var endIndex = Math.min(i + batchSize, allMeetings.length);
-    var batchResults = processMeetingBatch(allMeetings.slice(i, endIndex));
-    totalRevenue += batchResults.revenue;
-    totalCost += batchResults.cost;
-    
-    // Add a small delay between batch processing
-    if (endIndex < allMeetings.length) {
-      Utilities.sleep(500);
-    }
-  }
-  
-  return { success: true, totalRevenue: totalRevenue, totalCost: totalCost };
-}*/
+
 
 //**
  /* calcMonthlyForecastSS - חישוב תחזית חודשית עם סיווג לפי:
@@ -151,9 +110,7 @@ function calcMonthlyForecastSS(monthStr, sivug) {
   var endDateStr = toIsoString(endDate);
 
   // שליפת כל הפגישות לחודש
-  //var allMeetings = getMeetingsForRange(startDateStr, endDateStr);
   var allMeetings = getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr);
-
   
   Logger.log("Total monthly meetings: " + allMeetings.length);
 
@@ -164,6 +121,17 @@ function calcMonthlyForecastSS(monthStr, sivug) {
   result.totalRevenue = result.totalRevenue || 0;
   result.totalCost = result.totalCost || 0;
   result.success = true;
+
+  // הוספת סיכום מספר הפגישות
+  var completedMeetings = allMeetings.filter(m => m.statuscode && m.statuscode.trim() === "התקיימה").length;
+  var noStatusMeetings = allMeetings.filter(m => !m.statuscode).length;
+  result.meetingSummary = {
+    totalMeetings: allMeetings.length,
+    completed: completedMeetings,
+    noStatus: noStatusMeetings
+  };
+  
+  Logger.log("Meeting Summary: " + JSON.stringify(result.meetingSummary));
   
   Logger.log("Monthly Forecast Result: " + JSON.stringify(result));
   return result;
@@ -224,7 +192,8 @@ function getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr) {
       query:
         "(scheduledstart >= " + startDateStr + ") AND " +
         "(scheduledstart < " + endDateStr + ") AND " +
-        "(pcfsystemfield498 is-not-null)"
+        "(pcfsystemfield498 is-not-null) AND " +
+        "(statuscode != 2) AND (statuscode != 1) AND (statuscode != 4) " 
     };
 
     var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
@@ -405,173 +374,7 @@ function processMeetingsBySivug(meetings, sivug) {
   return result;
 }
 
-/*function processMeetingsBySivug(meetings, sivug) {
-  var totalRevenue = 0;
-  var totalCost = 0;
-  
-  if (sivug === "cycle") {
-    // New logic for cycle grouping:
-    // Group meetings by cycle ID.
-    var cyclesMap = {};
-    meetings.forEach(function(meeting) {
-      var cycleId = meeting.pcfsystemfield498;
-      if (!cycleId) return;
-      if (!cyclesMap[cycleId]) {
-        cyclesMap[cycleId] = [];
-      }
-      cyclesMap[cycleId].push(meeting);
-    });
-    
-    // Process each cycle separately.
-    for (var cycleId in cyclesMap) {
-      var cycleMeetings = cyclesMap[cycleId];
-      var cycle = getCycleById(cycleId);
-      if (!cycle) continue;
-      
-      // The maximum number of forecast meetings is given in pcfsystemfield233
-      var maxForecast = parseInt(cycle.pcfsystemfield233 || "0", 10);
-      
-      // Filter meetings to those with no status (i.e. forecast meetings)
-      var forecastMeetings = cycleMeetings.filter(function(m) {
-        // If the meeting has a status (non-empty) then we do NOT use forecast logic.
-        return !(m.statuscode && m.statuscode.trim() !== "");
-      });
-      
-      var cycleRevenue = 0;
-      var cycleCost = 0;
-      var numForecast = forecastMeetings.length;
-      
-      // Process forecast meetings up to maxForecast.
-      for (var i = 0; i < Math.min(numForecast, maxForecast); i++) {
-        var meeting = forecastMeetings[i];
-        // Use forecast logic for each meeting
-        var inc = getIncomePerMeeting(cycle);
-        var cost = calculateMeetingCost(meeting);
-        cycleRevenue += inc;
-        cycleCost += cost;
-      }
-      
-      // If there are fewer forecast meetings than maxForecast, pad using the last forecast meeting's values.
-      if (numForecast > 0 && numForecast < maxForecast) {
-        var missing = maxForecast - numForecast;
-        var lastMeeting = forecastMeetings[numForecast - 1];
-        var inc = getIncomePerMeeting(cycle);
-        var cost = calculateMeetingCost(lastMeeting);
-        cycleRevenue += missing * inc;
-        cycleCost += missing * cost;
-      }
-      
-      totalRevenue += cycleRevenue;
-      totalCost += cycleCost;
-    }
-    
-  } else {
-    // For non-cycle grouping (i.e. for "lesson" and "branch") use the original per‐meeting logic.
-    var privateCount = 0, privateSum = 0;
-    var mosediCount = 0, mosediSum = 0;
-    var mosediChildCount = 0, mosediChildSum = 0;
-    var frontaliCount = 0, frontaliSum = 0;
-    var privateLessonCount = 0, privateLessonSum = 0;
-    var onlineCount = 0, onlineSum = 0;
-    var supportCount = 0, supportSum = 0;
-    var branchMap = {};
-    
-    var batchSize = 1000;
-    for (var i = 0; i < meetings.length; i += batchSize) {
-      var endIndex = Math.min(i + batchSize, meetings.length);
-      var batchMeetings = meetings.slice(i, endIndex);
-      
-      for (var j = 0; j < batchMeetings.length; j++) {
-        var meeting = batchMeetings[j];
-        var cycleId = meeting.pcfsystemfield498;
-        if (!cycleId) continue;
-        var cycle = getCycleById(cycleId);
-        if (!cycle) continue;
-        
-        // If the meeting has a status and it is "התקיימה" then use actual values;
-        // Otherwise (if status is empty) use forecast logic.
-        var inc = 0, cost = 0;
-        if (meeting.statuscode && meeting.statuscode.trim() === "התקיימה") {
-          inc = parseFloat(meeting.pcfsystemfield559 || 0);
-          cost = parseFloat(meeting.pcfsystemfield545 || 0);
-        } else {
-          inc = getIncomePerMeeting(cycle);
-          cost = calculateMeetingCost(meeting);
-        }
-        totalRevenue += inc;
-        totalCost += cost;
-        
-        if (sivug === "lesson") {
-          var lessonTypeText = (meeting.pcfsystemfield542 || "").trim();
-          switch (lessonTypeText) {
-            case "שיעור פרונטאלי":
-              frontaliCount++;
-              frontaliSum += inc;
-              break;
-            case "שיעור פרטי":
-              privateLessonCount++;
-              privateLessonSum += inc;
-              break;
-            case "שיעור אונליין קבוצתי":
-              onlineCount++;
-              onlineSum += inc;
-              break;
-            case "תמיכה או בניית חומרים":
-              supportCount++;
-              supportSum += inc;
-              break;
-            default:
-              Logger.log("Unknown lessonTypeText: " + lessonTypeText);
-              break;
-          }
-        } else if (sivug === "branch") {
-          var branchId = cycle.pcfsystemfield451;
-          var branchName = getBranchName(branchId);
-          if (!branchMap[branchName]) {
-            branchMap[branchName] = { count: 0, sumRevenue: 0 };
-          }
-          branchMap[branchName].count++;
-          branchMap[branchName].sumRevenue += inc;
-        }
-      }
-      
-      if (endIndex < meetings.length) {
-        Utilities.sleep(500);
-      }
-    }
-    
-    // For lesson or branch grouping, attach breakdown details.
-    if (sivug === "lesson") {
-      var result = {
-        success: true,
-        frontaliCount: frontaliCount,
-        frontaliSum: frontaliSum,
-        privateLessonCount: privateLessonCount,
-        privateLessonSum: privateLessonSum,
-        onlineCount: onlineCount,
-        onlineSum: onlineSum,
-        supportCount: supportCount,
-        supportSum: supportSum
-      };
-    } else if (sivug === "branch") {
-      var branchDetails = [];
-      for (var bName in branchMap) {
-        branchDetails.push({
-          branchName: bName,
-          count: branchMap[bName].count,
-          sumRevenue: branchMap[bName].sumRevenue
-        });
-      }
-      var result = {
-        success: true,
-        branchDetails: branchDetails
-      };
-    }
-  }
-  
-  // Return overall totals for revenue and cost.
-  return { success: true, totalRevenue: totalRevenue, totalCost: totalCost };
-}*/
+
 
 
 function processLargeMonthByWeeks(year, month) {
@@ -1877,10 +1680,10 @@ function getActiveCycles() {
   Logger.log("getActiveCycles called");
   var queryPayload = {
     objecttype: 1000, // ObjectType עבור מחזורים
-    page_size: 200,
+    page_size: 400,
     page_number: 1,
     fields: "customobject1000id,pcfsystemfield451,pcfsystemfield37,name,pcfsystemfield550,pcfsystemfield33,pcfsystemfield35", // הוספת שדות שם והכנסה
-    query: "pcfsystemfield37 = 3" // שאילתה לסינון מחזורים פעילים (סטטוס 3)
+    query: "(pcfsystemfield37 = 3) OR (pcfsystemfield37 = 4) OR (pcfsystemfield37 = 5)" // שאילתה לסינון מחזורים פעילים (סטטוס 3)
   };
 
   var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
@@ -2000,7 +1803,8 @@ function getMeetingsForCycle(cycleId, startDateStr, endDateStr) {
       query:
         "(scheduledstart >= " + startDateStr + ") AND " +
         "(scheduledstart < " + endDateStr + ") AND " +
-        "(pcfsystemfield498 = '" + cycleId + "')"
+        "(pcfsystemfield498 = '" + cycleId + "') AND " +
+        "(statuscode != 2) AND (statuscode != 1) AND (statuscode != 4) "
     };
     var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
     if (!data) {
@@ -2027,10 +1831,10 @@ function getCyclesForBranch(branchId) {
   Logger.log("getCyclesForBranch called for branchId: " + branchId);
   var queryPayload = {
     objecttype: 1000,
-    page_size: 200,
+    page_size: 400,
     page_number: 1,
-    fields: "customobject1000id,pcfsystemfield451",
-    query: "(pcfsystemfield451 = '" + branchId + "')"
+    fields: "customobject1000id,pcfsystemfield451,pcfsystemfield37,pcfsystemfield85",
+    query: "(pcfsystemfield451 = '" + branchId + "') AND ((pcfsystemfield37 = 3) OR (pcfsystemfield37 = 4) OR (pcfsystemfield37 = 20) OR (pcfsystemfield37 = 5))"
   };
   var cycles = [];
   var pageNumber = 1;
@@ -2046,7 +1850,7 @@ function getCyclesForBranch(branchId) {
     pageNumber++;
     Utilities.sleep(300);
   }
-  Logger.log("Found " + cycles.length + " cycles for branch " + branchId);
+  Logger.log("Found " + cycles.length + " active and completed cycles for branch " + branchId);
   return cycles;
 }
 
@@ -2292,23 +2096,6 @@ function testAnnualForecastHerzog() {
   Logger.log("Annual forecast for גימנסיה הרצוג (branchId: " + branchId + "): " + JSON.stringify(result));
 }
 
-
-
-
-
-/**
- * פונקציה להרצת תחזית שבועית עבור אפריל 2025, שבוע 1,
- * לפי סיווג "cycle" (לפי סוג המחזור).
- * הפונקציה מדפיסה ללוג את התוצאה המוחזרת.
- */
-function testWeeklyForecastApril2025Week1() {
-  var monthStr = "2025-04";
-  var weekStr = "1";
-  var sivug = "cycle";  // ניתן לשנות ל-"lesson" או "branch" לפי הצורך
-
-  var result = calcMonthlyForecastSS(monthStr, sivug);
-  Logger.log("Weekly Forecast for April 2025, Week 1 (" + sivug + "): " + JSON.stringify(result));
-}
 
 function getEndedCycles(startDate, endDate) {
   Logger.log("getEndedCycles called with date range: " + startDate + " to " + endDate);
@@ -2732,83 +2519,6 @@ function getMeetingDetails(meetingId) {
   };
 }
 
-/**
- * searchMeetings - מחפש פגישות לפי פרמטרים שונים
- * @param {object} params - פרמטרים לחיפוש (תאריכים, סטטוס, מדריך, מחזור וכו')
- * @return {Array} מערך של פגישות שנמצאו
- */
-/*function searchMeetings(params) {
-  Logger.log("searchMeetings called with params: " + JSON.stringify(params));
-  
-  var query = [];
-  
-  if (params.startDate) {
-    Logger.log("Adding startDate filter: " + params.startDate);
-    query.push("(scheduledstart >= " + params.startDate + ")");
-  }
-  if (params.endDate) {
-    Logger.log("Adding endDate filter: " + params.endDate);
-    query.push("(scheduledstart < " + params.endDate + ")");
-  }
-
-  // עדכון הטיפול בסטטוס - תמיכה גם בערכים מספריים וגם בטקסט
-  if (params.status) {
-    Logger.log("Adding status filter: " + params.status);
-    switch(params.status) {
-      case "פעיל":
-        // פגישות עתידיות - אין להן סטטוס
-        query.push("(statuscode is-null)");
-        break;
-      case "התקיימה":
-        query.push("((statuscode = 'התקיימה') OR (statuscode = '3'))");
-        break;
-      case "בוטלה":
-        query.push("((statuscode = 'בוטלה') OR (statuscode = '1'))");
-        break;
-      case "נדחתה":
-        query.push("((statuscode = 'נדחתה') OR (statuscode = '4'))");
-        break;
-      case "לא בשימוש":
-        query.push("((statuscode = 'לא בשימוש') OR (statuscode = '2'))");
-        break;
-    }
-  }
-
-  if (params.guideId) {
-    Logger.log("Adding guideId filter: " + params.guideId);
-    query.push("(pcfsystemfield485 = '" + params.guideId + "')");
-  }
-  if (params.cycleId) {
-    Logger.log("Adding cycleId filter: " + params.cycleId);
-    query.push("(pcfsystemfield498 = '" + params.cycleId + "')");
-  }
-  
-  // הוספת תנאי חובה שקיים מחזור
-  query.push("(pcfsystemfield498 is-not-null)");
-  
-  var queryPayload = {
-    objecttype: 6,
-    page_size: 50,
-    page_number: 1,
-    fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560",
-    query: query.join(" AND ")
-  };
-  
-  Logger.log("Final query payload: " + JSON.stringify(queryPayload));
-  
-  var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
-  if (!data || !data.data || !data.data.Data) {
-    Logger.log("No data returned from API");
-    return [];
-  }
-  
-  Logger.log("Found " + data.data.Data.length + " meetings");
-  return data.data.Data.map(meeting => {
-    var details = getMeetingDetails(meeting.activityid);
-    Logger.log("Processed meeting: " + meeting.activityid);
-    return details;
-  });
-}*/
 
 /**
  * searchMeetings - מחפש פגישות לפי פרמטרים חכמים כולל תאריכים, סטטוס, מדריך, מחזור
@@ -4325,5 +4035,440 @@ function debugChatQueryTest() {
   }
 
   return result;
+}
+
+// Add a helper function to list all instructor names
+function listInstructorNames() {
+  const guides = getAllGuidesList();
+  const names = guides.map(g => g.name);
+  Logger.log("📋 שמות המדריכים (" + names.length + ") : " + names.join(", "));
+  return names;
+}
+
+// Add a test function to run the monthly forecast for May by branches
+function testMonthlyForecastMayByBranch() {
+  const monthStr = "2025-04"; // April 2025
+  const sivug = "branch"; // Grouping by branch
+  Logger.log("Running monthly forecast for May 2025 by branch...");
+  const result = calcMonthlyForecastSS(monthStr, sivug);
+  Logger.log("Monthly Forecast Result:", JSON.stringify(result, null, 2));
+  if (!result.success) {
+    Logger.log("Error in forecast calculation:", result.error);
+  } else {
+    Logger.log("Total Revenue:", result.totalRevenue);
+    Logger.log("Total Cost:", result.totalCost);
+    if (result.branchDetails) {
+      result.branchDetails.forEach(branch => {
+        Logger.log(`Branch: ${branch.branchName}, Meetings: ${branch.count}, Revenue: ${branch.sumRevenue}`);
+      });
+    }
+  }
+}
+
+/**
+ * testGetCyclesForSpecificBranch - Test function to debug the getCyclesForBranch function
+ * with a specific branch ID, and retrieve meetings for April.
+ */
+function testGetCyclesForSpecificBranch() {
+  const branchId = "d9b621ba-e10d-43a5-9edd-6a33b4b5709a"; // גימנסיה הרצוג
+  Logger.log("Starting test for branch ID: " + branchId);
+  
+  // Call the function we want to test
+  const cycles = getCyclesForBranch(branchId);
+  
+  // Log details about the results
+  Logger.log("Found " + cycles.length + " cycles for branch ID: " + branchId);
+  
+  // Log the first few cycles for inspection (if any were found)
+  if (cycles.length > 0) {
+    Logger.log("First " + Math.min(5, cycles.length) + " cycles details:");
+    for (let i = 0; i < Math.min(5, cycles.length); i++) {
+      Logger.log("Cycle " + (i+1) + ": " + JSON.stringify(cycles[i]));
+    }
+  } else {
+    Logger.log("No cycles found for this branch ID. Check if the branch ID is correct.");
+    return [];
+  }
+  
+  // Get all meetings for April
+  const startDate = "2025-04-01T00:00:00";
+  const endDate = "2025-04-30T23:59:59";
+  
+  Logger.log("Retrieving meetings for April 2025: " + startDate + " to " + endDate);
+  
+  // Get meetings for each cycle
+  let allMeetings = [];
+  
+  for (let i = 0; i < cycles.length; i++) {
+    const cycle = cycles[i];
+    const cycleId = cycle.customobject1000id;
+    
+    if (!cycleId) {
+      Logger.log("No cycle ID found for cycle " + (i+1));
+      continue;
+    }
+    
+    Logger.log("Getting meetings for cycle ID: " + cycleId);
+    const meetings = getMeetingsForCycle(cycleId, startDate, endDate);
+    Logger.log("Found " + meetings.length + " meetings for cycle " + (i+1));
+    
+    allMeetings = allMeetings.concat(meetings);
+  }
+  
+  Logger.log("Total April meetings for all cycles: " + allMeetings.length);
+  
+  // Log the first few meetings for inspection
+  if (allMeetings.length > 0) {
+    Logger.log("First " + Math.min(5, allMeetings.length) + " meetings details:");
+    for (let i = 0; i < Math.min(5, allMeetings.length); i++) {
+      // Extract key meeting information
+      const meeting = allMeetings[i];
+      const meetingDate = meeting.scheduledend ? meeting.scheduledend.split('T')[0] : 'N/A';
+      const meetingTime = meeting.scheduledend ? meeting.scheduledend.split('T')[1].substring(0, 5) : 'N/A';
+      const status = meeting.statuscode || 'ללא סטטוס';
+      const guideId = meeting.pcfsystemfield485 || 'לא צוין';
+      const income = parseFloat(meeting.pcfsystemfield559 || 0);
+      const cost = parseFloat(meeting.pcfsystemfield545 || 0);
+      
+      Logger.log(`Meeting ${i+1}: Date=${meetingDate}, Time=${meetingTime}, Status=${status}, GuideID=${guideId}, Income=${income}, Cost=${cost}`);
+    }
+  } else {
+    Logger.log("No meetings found for April 2025");
+  }
+  
+  // Also test the branch range function directly
+  Logger.log("Testing getMeetingsForBranchRange directly");
+  const branchMeetings = getMeetingsForBranchRange(branchId, startDate, endDate);
+  Logger.log("Total meetings from getMeetingsForBranchRange: " + branchMeetings.length);
+  
+  return {
+    cycles: cycles,
+    meetings: allMeetings,
+    branchMeetings: branchMeetings
+  };
+}
+
+/**
+ * testGetCyclesForHerzliyaGymnasium - Test function to find the branch ID for "גימנסיה הרצליה"
+ * and list all cycles associated with it to debug the "Branch ID not found" error.
+ */
+function testGetCyclesForHerzliyaGymnasium() {
+  Logger.log("Starting test to find branch ID for גימנסיה הרצליה");
+  
+  // Step 1: Get all branches and find the one with a name similar to "גימנסיה הרצליה"
+  const branches = getBranchList();
+  
+  if (!branches || branches.length === 0) {
+    Logger.log("Error: No branches found in the system");
+    return;
+  }
+  
+  Logger.log("Total branches found: " + branches.length);
+  
+  // Log all branch names to help find the right one
+  Logger.log("All branch names:");
+  branches.forEach(branch => {
+    Logger.log(`Branch ID: ${branch.id}, Name: ${branch.name}`);
+  });
+  
+  // Try to find branches with names containing "הרצליה", "גימנסיה", or similar variations
+  const potentialMatches = branches.filter(branch => 
+    branch.name.includes("הרצליה") || 
+    branch.name.includes("גימנסיה") || 
+    branch.name.includes("הרצלייה") ||
+    branch.name.includes("ג'מנסיה") ||
+    branch.name.includes("גמנסיה")
+  );
+  
+  Logger.log("Potential matches found: " + potentialMatches.length);
+  potentialMatches.forEach(branch => {
+    Logger.log(`Potential match - Branch ID: ${branch.id}, Name: ${branch.name}`);
+  });
+  
+  // If no potential matches, return
+  if (potentialMatches.length === 0) {
+    Logger.log("No branches found matching the name 'גימנסיה הרצליה' or similar variations");
+    return;
+  }
+  
+  // Step 2: For each potential match, try to get cycles
+  potentialMatches.forEach(branch => {
+    Logger.log(`Testing cycles for branch: ${branch.name} (ID: ${branch.id})`);
+    
+    // Call getCyclesForBranch with this branch ID
+    const cycles = getCyclesForBranch(branch.id);
+    
+    if (!cycles || cycles.length === 0) {
+      Logger.log(`No cycles found for branch: ${branch.name} (ID: ${branch.id})`);
+    } else {
+      Logger.log(`Found ${cycles.length} cycles for branch: ${branch.name} (ID: ${branch.id})`);
+      
+      // Log the first few cycles (up to 5)
+      for (let i = 0; i < Math.min(5, cycles.length); i++) {
+        Logger.log(`Cycle ${i+1} details: ${JSON.stringify(cycles[i])}`);
+      }
+    }
+  });
+  
+  // Step 3: Special test for "גימנסיה הרצוג" to check why it's failing
+  Logger.log("Special test for 'גימנסיה הרצוג'");
+  
+  const herzogMatches = branches.filter(branch => 
+    branch.name.includes("הרצוג") || 
+    branch.name.includes("גימנסיה הרצוג")
+  );
+  
+  if (herzogMatches.length === 0) {
+    Logger.log("No branches found matching 'גימנסיה הרצוג'");
+  } else {
+    herzogMatches.forEach(branch => {
+      Logger.log(`Herzog match - Branch ID: ${branch.id}, Name: ${branch.name}`);
+    });
+  }
+  
+  // Return the potential matches for further processing if needed
+  return potentialMatches;
+}
+
+/**
+ * getInstructorNameById - Helper function to get instructor name by ID
+ * @param {string} instructorId - ID of the instructor (guide)
+ * @return {string} - Name of the instructor or default text if not found
+ */
+function getInstructorNameById(instructorId) {
+  if (!instructorId) return "לא מוגדר";
+  
+  var guide = getGuideById(instructorId);
+  return guide ? guide.name : "לא נמצא";
+}
+
+/**
+ * getMeetingsWithInstructorNamesForBranch - Get branch meetings with instructor names
+ * @param {string} branchId - ID of the branch
+ * @param {string} startDateStr - Start date in ISO format
+ * @param {string} endDateStr - End date in ISO format
+ * @return {Array} - Array of meetings with instructor names added
+ */
+function getMeetingsWithInstructorNamesForBranch(branchId, startDateStr, endDateStr) {
+  var meetings = getMeetingsForBranchRange(branchId, startDateStr, endDateStr);
+  
+  // Add instructor names to each meeting
+  for (var i = 0; i < meetings.length; i++) {
+    var instructorId = meetings[i].pcfsystemfield485;
+    meetings[i].instructorName = getInstructorNameById(instructorId);
+  }
+  
+  return meetings;
+}
+
+/**
+ * getMeetingsWithInstructorNamesForBranch - Get branch meetings with instructor names
+ * @param {string} branchId - ID of the branch
+ * @param {string} startDateStr - Start date in ISO format
+ * @param {string} endDateStr - End date in ISO format
+ * @return {Array} - Array of meetings with instructor names and calculated future income/costs
+ */
+function getMeetingsWithInstructorNamesForBranch(branchId, startDateStr, endDateStr) {
+  var meetings = getMeetingsForBranchRange(branchId, startDateStr, endDateStr);
+  
+  // Add instructor names and calculate future income/costs for each meeting
+  for (var i = 0; i < meetings.length; i++) {
+    var meeting = meetings[i];
+    var instructorId = meeting.pcfsystemfield485;
+    meeting.instructorName = getInstructorNameById(instructorId);
+    
+    // If meeting has no status or status is not "completed", calculate future income and cost
+    if (!meeting.statuscode || (meeting.statuscode !== 'התקיימה' && meeting.statuscode !== '4')) {
+      // Get the cycle for this meeting to calculate income
+      var cycleId = meeting.pcfsystemfield498;
+      if (cycleId) {
+        var cycle = getCycleById(cycleId);
+        if (cycle) {
+          // Calculate future income and cost
+          meeting.calculatedIncome = getIncomePerMeeting(cycle);
+          meeting.calculatedCost = calculateMeetingCost(meeting);
+        }
+      }
+    }
+  }
+  
+  return meetings;
+}
+
+/**
+ * testBranchFutureIncomeForMay2025 - Test function to calculate future income and expenses
+ * for May 2025 for a specific branch using getMeetingsWithInstructorNamesForBranch
+ */
+function testBranchFutureIncomeForMay2025() {
+  const branchId = "b1222c67-e70b-4048-aab5-aada245a0391";
+  const startDate = "2025-05-01T00:00:00";
+  const endDate = "2025-05-31T23:59:59";
+  
+  Logger.log("Starting test for branch ID: " + branchId);
+  Logger.log("Date range: " + startDate + " to " + endDate);
+  
+  // Get all meetings for the branch in May 2025
+  const meetings = getMeetingsWithInstructorNamesForBranch(branchId, startDate, endDate);
+  Logger.log("Total meetings found: " + meetings.length);
+  
+  // Initialize counters
+  let totalFutureIncome = 0;
+  let totalFutureExpenses = 0;
+  let totalActualIncome = 0;
+  let totalActualExpenses = 0;
+  let futureCount = 0;
+  let completedCount = 0;
+  
+  // Process each meeting
+  meetings.forEach((meeting, index) => {
+    const status = meeting.statuscode || '';
+    const isCompleted = (status === 'התקיימה' || status === '4');
+    
+    if (isCompleted) {
+      // For completed meetings, use actual values
+      totalActualIncome += parseFloat(meeting.pcfsystemfield559 || 0);
+      totalActualExpenses += parseFloat(meeting.pcfsystemfield545 || 0);
+      completedCount++;
+    } else {
+      // For future meetings, use calculated values
+      totalFutureIncome += parseFloat(meeting.calculatedIncome || 0);
+      totalFutureExpenses += parseFloat(meeting.calculatedCost || 0);
+      futureCount++;
+    }
+    
+    // Log details for each meeting
+    Logger.log(`\nMeeting ${index + 1}:`);
+    Logger.log(`Date: ${meeting.scheduledend ? meeting.scheduledend.split('T')[0] : 'N/A'}`);
+    Logger.log(`Instructor: ${meeting.instructorName}`);
+    Logger.log(`Status: ${status || 'Future'}`);
+    if (isCompleted) {
+      Logger.log(`Actual Income: ₪${parseFloat(meeting.pcfsystemfield559 || 0).toFixed(2)}`);
+      Logger.log(`Actual Expenses: ₪${parseFloat(meeting.pcfsystemfield545 || 0).toFixed(2)}`);
+    } else {
+      Logger.log(`Calculated Income: ₪${parseFloat(meeting.calculatedIncome || 0).toFixed(2)}`);
+      Logger.log(`Calculated Expenses: ₪${parseFloat(meeting.calculatedCost || 0).toFixed(2)}`);
+    }
+  });
+  
+  // Calculate totals
+  const totalIncome = totalActualIncome + totalFutureIncome;
+  const totalExpenses = totalActualExpenses + totalFutureExpenses;
+  const totalProfit = totalIncome - totalExpenses;
+  
+  // Log summary
+  Logger.log("\n=== Summary for May 2025 ===");
+  Logger.log(`Total Meetings: ${meetings.length}`);
+  Logger.log(`- Completed Meetings: ${completedCount}`);
+  Logger.log(`- Future Meetings: ${futureCount}`);
+  Logger.log("\nActual Values (Completed Meetings):");
+  Logger.log(`- Income: ₪${totalActualIncome.toFixed(2)}`);
+  Logger.log(`- Expenses: ₪${totalActualExpenses.toFixed(2)}`);
+  Logger.log("\nFuture Values (Upcoming Meetings):");
+  Logger.log(`- Projected Income: ₪${totalFutureIncome.toFixed(2)}`);
+  Logger.log(`- Projected Expenses: ₪${totalFutureExpenses.toFixed(2)}`);
+  Logger.log("\nTotal Values:");
+  Logger.log(`- Total Income: ₪${totalIncome.toFixed(2)}`);
+  Logger.log(`- Total Expenses: ₪${totalExpenses.toFixed(2)}`);
+  Logger.log(`- Total Profit: ₪${totalProfit.toFixed(2)}`);
+  
+  return {
+    totalMeetings: meetings.length,
+    completedMeetings: completedCount,
+    futureMeetings: futureCount,
+    actual: {
+      income: totalActualIncome,
+      expenses: totalActualExpenses
+    },
+    future: {
+      income: totalFutureIncome,
+      expenses: totalFutureExpenses
+    },
+    total: {
+      income: totalIncome,
+      expenses: totalExpenses,
+      profit: totalProfit
+    }
+  };
+}
+
+/**
+ * testGetCyclesForNitzanim - Test function to find the branch ID for "בית ספר ניצנים"
+ * and list all cycles associated with it.
+ */
+function testGetCyclesForNitzanim() {
+  Logger.log("Starting test to find branch ID for בית ספר ניצנים");
+  
+  // Step 1: Get all branches and find the one with a name similar to "בית ספר ניצנים"
+  const branches = getBranchList();
+  
+  if (!branches || branches.length === 0) {
+    Logger.log("Error: No branches found in the system");
+    return;
+  }
+  
+  Logger.log("Total branches found: " + branches.length);
+  
+  // Log all branch names to help find the right one
+  Logger.log("All branch names:");
+  branches.forEach(branch => {
+    Logger.log(`Branch ID: ${branch.id}, Name: ${branch.name}`);
+  });
+  
+  // Try to find branches with names containing "ניצנים" or "בית ספר ניצנים"
+  const potentialMatches = branches.filter(branch => 
+    branch.name.includes("ניצנים") || 
+    branch.name.includes("בית ספר ניצנים")
+  );
+  
+  Logger.log("Potential matches found: " + potentialMatches.length);
+  potentialMatches.forEach(branch => {
+    Logger.log(`Potential match - Branch ID: ${branch.id}, Name: ${branch.name}`);
+  });
+  
+  // If no potential matches, return
+  if (potentialMatches.length === 0) {
+    Logger.log("No branches found matching the name 'בית ספר ניצנים'");
+    return;
+  }
+  
+  // Step 2: For each potential match, try to get cycles
+  potentialMatches.forEach(branch => {
+    Logger.log(`\nTesting cycles for branch: ${branch.name} (ID: ${branch.id})`);
+    
+    // Call getCyclesForBranch with this branch ID
+    const cycles = getCyclesForBranch(branch.id);
+    
+    if (!cycles || cycles.length === 0) {
+      Logger.log(`No cycles found for branch: ${branch.name} (ID: ${branch.id})`);
+    } else {
+      Logger.log(`Found ${cycles.length} cycles for branch: ${branch.name} (ID: ${branch.id})`);
+      
+      // Log the first few cycles (up to 5)
+      for (let i = 0; i < Math.min(5, cycles.length); i++) {
+        Logger.log(`Cycle ${i+1} details:`);
+        Logger.log(`- ID: ${cycles[i].customobject1000id}`);
+        Logger.log(`- Status: ${cycles[i].pcfsystemfield37}`);
+        Logger.log(`- Instructor: ${cycles[i].pcfsystemfield85 || 'Not specified'}`);
+      }
+
+      // Get meetings for April 2025 for this branch
+      const startDate = "2025-04-01T00:00:00";
+      const endDate = "2025-04-30T23:59:59";
+      const meetings = getMeetingsForBranchRange(branch.id, startDate, endDate);
+      Logger.log(`\nFound ${meetings.length} meetings for April 2025`);
+      
+      if (meetings.length > 0) {
+        Logger.log("Sample of first 3 meetings:");
+        meetings.slice(0, 3).forEach((meeting, index) => {
+          Logger.log(`\nMeeting ${index + 1}:`);
+          Logger.log(`- Date: ${meeting.scheduledend ? meeting.scheduledend.split('T')[0] : 'N/A'}`);
+          Logger.log(`- Status: ${meeting.statuscode || 'No status'}`);
+          Logger.log(`- Guide ID: ${meeting.pcfsystemfield485 || 'Not specified'}`);
+        });
+      }
+    }
+  });
+  
+  return potentialMatches;
 }
 

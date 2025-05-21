@@ -326,6 +326,223 @@
         #chartContainer { height: 300px; }
         .section { padding: 20px; }
       }
+
+      /* In the CSS section where .embedded-chat-container is defined: */
+      .embedded-chat-container {
+        position: fixed !important;
+        bottom: 15px !important;
+        z-index: 99999 !important; /* Increase z-index to be above everything */
+        /* start collapsed as toggle */
+        width: var(--chat--toggle--size) !important;
+        height: var(--chat--toggle--size) !important;
+        background: transparent !important;
+        border-radius: 50% !important;
+        overflow: hidden !important;
+        transition: width 0.3s ease, height 0.3s ease, background 0.3s ease, border-radius 0.3s ease !important;
+        left: 15px !important;
+        right: auto !important;
+      }
+      /* expanded state when open */
+      .embedded-chat-container.open {
+        width: var(--chat--window--width) !important;
+        height: var(--chat--window--height) !important;
+        background: var(--chat--color-light) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        left: 15px !important;
+        right: auto !important;
+        border: 2px solid var(--chat--color-primary) !important; /* Add border to make it stand out */
+      }
+
+      /* Add styling for the inner container */
+      .embedded-chat-container #n8n-chat-inner {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      .loading-indicator {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        background: rgba(10, 22, 42, 0.8);
+        border-radius: 8px;
+        margin-top: 20px;
+        color: #4cc9f0;
+        box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+        border: 1px solid rgba(0, 200, 255, 0.3);
+      }
+
+      .loading-spinner {
+        display: inline-block;
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(76, 201, 240, 0.3);
+        border-radius: 50%;
+        border-top-color: #4cc9f0;
+        animation: spin 1s linear infinite;
+        margin-right: 10px;
+      }
+
+      @keyframes spin {
+        to {transform: rotate(360deg);}
+      }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css">
+    <!-- n8n chat widget styling overrides -->
+    <style>
+      :root {
+        --chat--window--width: 300px;
+        --chat--window--height: 450px;
+        --chat--toggle--size: 40px;
+        --chat--color-primary: #ff6b6b; /* Changed from blue to red */
+        --chat--color-light: #f9f9f9; /* Changed from dark blue to light gray */
+        --chat--heading--font-size: 1.4rem;
+        --chat--subtitle--font-size: 1rem;
+        --chat--message--font-size: 0.9rem;
+        --chat--textarea--height: 45px;
+        --chat--textarea--font-size: 0.95rem;
+      }
+      /* Override default chat CSS: show only the toggle until open */
+      .embedded-chat-container {
+        width: var(--chat--toggle--size) !important;
+        height: var(--chat--toggle--size) !important;
+        background: var(--chat--color-primary) !important; /* Make bubble visible */
+        border-radius: 50% !important;
+        overflow: hidden !important;
+        transition: width 0.3s ease, height 0.3s ease, background 0.3s ease, border-radius 0.3s ease !important;
+        left: 15px !important;
+        right: auto !important;
+        position: fixed !important;
+        bottom: 15px !important;
+        z-index: 99999 !important; /* Increase z-index to be above everything */
+      }
+      .embedded-chat-container.open {
+        width: var(--chat--window--width) !important;
+        height: var(--chat--window--height) !important;
+        background: var(--chat--color-light) !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        left: 15px !important;
+        right: auto !important;
+        border: 2px solid var(--chat--color-primary) !important; /* Add border to make it stand out */
+      }
+      /* Styling for the inner chat container */
+      .embedded-chat-container #n8n-chat-inner {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      .embedded-chat-container #n8n-chat-bubble {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: white !important; /* Make icon visible on red background */
+        font-size: 22px !important;
+      }
+    </style>
+    <style>
+      .chat-button-float {
+        position: fixed;
+        bottom: 15px;
+        left: 15px;
+        width: 40px;
+        height: 40px;
+        background-color: #ff6b6b;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 99999;
+        color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        transition: transform 0.2s;
+      }
+      
+      .chat-button-float:hover {
+        transform: scale(1.1);
+      }
+      
+      .chat-icon {
+        font-size: 22px;
+      }
+      
+      /* Force chat window to appear on the left side */
+      div.chat-window-wrapper {
+        left: 20px !important;
+        right: auto !important;
+      }
+      
+      /* Fix arrow position for left-side chat */
+      div.chat-window-toggle {
+        left: 20px !important;
+        right: auto !important;
+      }
+    </style>
+    <!-- Add CSS for the popup window -->
+    <style>
+      .popup-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 100000;
+      }
+      
+      .popup-content {
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        width: 80%;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        direction: rtl;
+        color: #333;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+      
+      .popup-close {
+        float: left;
+        cursor: pointer;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #333;
+      }
+      
+      .meeting-details-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        color: #333;
+      }
+      
+      .meeting-details-table th, .meeting-details-table td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+      }
+      
+      .meeting-details-table th {
+        background-color: #f2f2f2;
+      }
     </style>
   </head>
   <body>
@@ -458,18 +675,6 @@
         <div id="cycleEndDateResults"></div>
       </div>
 
-      <!-- הוספת אזור חדש לצ'אטבוט -->
-      <div class="section" id="chatbotSection">
-        <h2>צ'אטבוט חכם</h2>
-        <div id="chatContainer" style="height: 400px; overflow-y: auto; margin-bottom: 20px; padding: 10px; background: rgba(0, 10, 30, 0.5); border-radius: 10px;">
-          <div id="chatMessages"></div>
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <input type="text" id="chatInput" placeholder="שאל שאלה על פגישות..." style="flex-grow: 1;">
-          <button onclick="sendChatMessage()" id="sendChatBtn">שלח</button>
-        </div>
-      </div>
-
       <!-- הוספת אזור חדש להרשמות לקורסים דיגיטליים -->
       <div class="section" id="digitalCoursesSection">
         <h2>הרשמות לקורסים דיגיטליים</h2>
@@ -487,6 +692,16 @@
           <button id="searchCoursesBtn" onclick="searchCourses()">חפש קורסים</button>
         </div>
         <div id="courseSearchResults"></div>
+      </div>
+
+      <div class="section" id="meetingSummarySection">
+        <h2>סיכום פגישות לחודש</h2>
+        <div id="meetingSummaryResults"></div>
+      </div>
+
+      <div class="section" id="meetingDetailsSection">
+        <h2>פרטי חישוב פגישות</h2>
+        <div id="meetingDetails"></div>
       </div>
 
     </div>
@@ -577,6 +792,9 @@
           .withSuccessHandler(displayResults(monthVal, sivug))
           .withFailureHandler(displayError)
           .calcMonthlyForecastSS(monthVal, sivug);
+        
+        const result = calcMonthlyForecastSS(monthVal, sivug);
+        displayMeetingSummary(result.meetingSummary);
       }
       
       function runDailyCalc() {
@@ -892,7 +1110,14 @@
           html += "סך הכנסה: ₪" + (response.totalRevenue || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
           html += "סך הוצאה: ₪" + (response.totalCost || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
           const profit = (response.totalRevenue || 0) - (response.totalCost || 0);
-          html += "סך רווח: ₪" + profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br><br>";
+          html += "סך רווח: ₪" + profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "<br>";
+          
+          // הוספת סיכום מספר הפגישות
+          if (response.meetingSummary) {
+            html += "<h4>סיכום פגישות:</h4>";
+            html += "נלקחו " + response.meetingSummary.totalMeetings + " פגישות<br>";
+            html += response.meetingSummary.completed + " התקיימו ו-" + response.meetingSummary.noStatus + " ללא סטטוס (עתידיות)<br>";
+          }
           
           if (sivug === "cycle" && response.privateCount !== undefined) {
             html += "<h4>סיווג לפי סוג מחזור:</h4>";
@@ -923,6 +1148,7 @@
             html += "</table>";
           }
           document.getElementById("results").innerHTML = html;
+          attachRowClickHandlers();
           enableForecastButtons();
         };
       }
@@ -1110,8 +1336,8 @@
             html += "<tr><th>מס'</th><th>שם מחזור</th><th>תאריך התחלה</th><th>תאריך סיום</th><th>סניף</th><th>הכנסה למפגש</th></tr>";
             
         cycles.forEach((cycle, index) => {
-              html += "<tr>";
-              html += "<td>" + (index + 1) + "</td>";
+          html += "<tr>";
+          html += "<td>" + (index + 1) + "</td>";
               
           const cycleId = cycle.CycleId || cycle.customobject1000id || '';
               if (cycleId) {
@@ -1406,63 +1632,6 @@
           .updateAllCyclesEndDates();
       }
 
-      // פונקציות חדשות לצ'אטבוט
-      function addChatMessage(message, isUser = false) {
-        var chatMessages = document.getElementById("chatMessages");
-        var messageDiv = document.createElement("div");
-        messageDiv.className = "chat-message " + (isUser ? "user-message" : "bot-message");
-        messageDiv.style.margin = "10px";
-        messageDiv.style.padding = "10px";
-        messageDiv.style.borderRadius = "10px";
-        messageDiv.style.maxWidth = "80%";
-        messageDiv.style.wordWrap = "break-word";
-        
-        if (isUser) {
-          messageDiv.style.marginLeft = "auto";
-          messageDiv.style.background = "rgba(67, 97, 238, 0.3)";
-        } else {
-          messageDiv.style.marginRight = "auto";
-          messageDiv.style.background = "rgba(76, 201, 240, 0.3)";
-        }
-        
-        messageDiv.textContent = message;
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-      }
-
-      function sendChatMessage() {
-        var input = document.getElementById("chatInput");
-        var message = input.value.trim();
-        if (!message) return;
-        
-        addChatMessage(message, true);
-        input.value = "";
-        document.getElementById("sendChatBtn").disabled = true;
-        
-        google.script.run
-          .withSuccessHandler(function(response) {
-            document.getElementById("sendChatBtn").disabled = false;
-            if (response.success) {
-              addChatMessage(response.answer);
-            } else {
-              addChatMessage("מצטער, אירעה שגיאה בעיבוד השאלה שלך.");
-            }
-          })
-          .withFailureHandler(function(error) {
-            document.getElementById("sendChatBtn").disabled = false;
-            addChatMessage("מצטער, אירעה שגיאה: " + error);
-          })
-          .processChatQuery(message);
-      }
-
-      // הוספת האזנה ללחיצה על Enter בשדה הקלט
-      document.getElementById("chatInput").addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          sendChatMessage();
-        }
-      });
-
       function showDigitalRegistrations() {
         disableForecastButtons();
         document.getElementById("loadingSpinner").style.display = "block";
@@ -1558,6 +1727,492 @@
           .printCoursesByName(searchTerm);
       }
 
+      function displayMeetingSummary(summary) {
+        const summaryDiv = document.getElementById('meetingSummaryResults');
+        summaryDiv.innerHTML = `
+          <p>נלקחו ${summary.totalMeetings} פגישות</p>
+          <p>${summary.completed} התקיימו ו-${summary.noStatus} ללא סטטוס (עתידיות)</p>
+        `;
+      }
+
+      function displayMeetingDetails(branchName, meetings) {
+        console.log("Displaying meeting details for", branchName, "with", meetings ? meetings.length : 0, "meetings");
+        
+        let html = `<div style="margin-top: 20px; padding: 15px; background: rgba(10, 22, 42, 0.8); border-radius: 8px; box-shadow: 0 0 15px rgba(0, 200, 255, 0.3); border: 1px solid rgba(0, 200, 255, 0.3);">`;
+        html += `<h3 style="color: #4cc9f0; margin-bottom: 15px;">פרטי חישוב עבור סניף: ${branchName}</h3>`;
+        
+        if (!meetings || meetings.length === 0) {
+          html += "<p style='color: #e6e6e6;'>לא נמצאו פגישות לסניף זה בחודש המבוקש</p>";
+        } else {
+          // Sort meetings by date
+          meetings.sort((a, b) => {
+            const dateA = a.scheduledend ? new Date(a.scheduledend) : new Date(0);
+            const dateB = b.scheduledend ? new Date(b.scheduledend) : new Date(0);
+            return dateA - dateB;
+          });
+
+          // Calculate totals
+          let totalIncome = 0;
+          let totalCost = 0;
+          let completedCount = 0;
+          let noStatusCount = 0;
+          
+          meetings.forEach(meeting => {
+            const status = meeting.statuscode || '';
+            let income = 0;
+            let cost = 0;
+            
+            if (status === 'התקיימה' || status === '4') {
+              income = parseFloat(meeting.pcfsystemfield559 || 0);
+              cost = parseFloat(meeting.pcfsystemfield545 || 0);
+              completedCount++;
+            } else {
+              income = parseFloat(meeting.calculatedIncome || 0);
+              cost = parseFloat(meeting.calculatedCost || 0);
+              noStatusCount++;
+            }
+            
+            totalIncome += income;
+            totalCost += cost;
+          });
+          
+          // Display summary
+          html += `<p style='color: #e6e6e6;'><strong>סה"כ ${meetings.length} פגישות:</strong></p>`;
+          html += `<p style='color: #e6e6e6;'>${completedCount} התקיימו ו-${noStatusCount} ללא סטטוס (עתידיות)</p>`;
+          html += `<p style='color: #e6e6e6;'><strong>סה"כ הכנסה: ₪${totalIncome.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>`;
+          html += `<p style='color: #e6e6e6;'><strong>סה"כ הוצאה: ₪${totalCost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>`;
+          html += `<p style='color: #e6e6e6;'><strong>סה"כ רווח: ₪${(totalIncome - totalCost).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>`;
+          
+          // Display meeting details table
+          html += "<table style='width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 15px; background: rgba(26, 26, 46, 0.8); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 200, 255, 0.1);'>";
+          html += "<tr>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>תאריך פגישה</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>שעת התחלה</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>סטטוס</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>מדריך</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>הכנסה</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>הוצאה</th>";
+          html += "<th style='background: rgba(67, 97, 238, 0.3); color: #4cc9f0; padding: 15px; text-align: center; font-weight: 500; font-size: 1.1em;'>רווח</th>";
+          html += "</tr>";
+          
+          meetings.forEach((meeting, index) => {
+            console.log("Processing meeting:", meeting);
+            const meetingDate = meeting.scheduledend ? meeting.scheduledend.split('T')[0] : 'N/A';
+            const meetingTime = meeting.scheduledend ? meeting.scheduledend.split('T')[1].substring(0, 5) : 'N/A';
+            const status = meeting.statuscode || 'ללא סטטוס';
+            const guideName = meeting.instructorName || 'לא צוין';
+            
+            // Calculate income and cost based on meeting status
+            let income = 0;
+            let cost = 0;
+            
+            if (status === 'התקיימה' || status === '4') {
+              // For completed meetings - use recorded values
+              income = parseFloat(meeting.pcfsystemfield559 || 0);
+              cost = parseFloat(meeting.pcfsystemfield545 || 0);
+            } else {
+              // For future meetings - use calculated values from server
+              income = parseFloat(meeting.calculatedIncome || 0);
+              cost = parseFloat(meeting.calculatedCost || 0);
+            }
+            
+            const profit = income - cost;
+            
+            const rowStyle = index % 2 === 0 ? 
+              'padding: 12px; text-align: center; border-top: 1px solid rgba(76, 201, 240, 0.1); color: #e6e6e6; font-weight: 300;' : 
+              'padding: 12px; text-align: center; border-top: 1px solid rgba(76, 201, 240, 0.1); color: #e6e6e6; font-weight: 300; background: rgba(67, 97, 238, 0.1);';
+            
+            html += "<tr>";
+            html += `<td style='${rowStyle}'>${meetingDate}</td>`;
+            html += `<td style='${rowStyle}'>${meetingTime}</td>`;
+            html += `<td style='${rowStyle}'>${status}</td>`;
+            html += `<td style='${rowStyle}'>${guideName}</td>`;
+            html += `<td style='${rowStyle}'>₪${income.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
+            html += `<td style='${rowStyle}'>₪${cost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
+            html += `<td style='${rowStyle}'>₪${profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
+            html += "</tr>";
+          });
+          
+          html += "</table>";
+        }
+        
+        html += `</div>`;
+        
+        // Add the details directly below the main results
+        const resultsElement = document.getElementById("results");
+        const detailsContainer = document.getElementById("meetingDetailResults");
+        
+        if (detailsContainer) {
+          detailsContainer.innerHTML = html;
+        } else {
+          // If container doesn't exist, create it
+          const newDetailsContainer = document.createElement("div");
+          newDetailsContainer.id = "meetingDetailResults";
+          newDetailsContainer.innerHTML = html;
+          resultsElement.appendChild(newDetailsContainer);
+        }
+      }
+
+      
+
+      function getBranchIdByName(branchName, callback) {
+        google.script.run
+          .withSuccessHandler(function(branches) {
+            const branch = branches.find(b => b.name === branchName);
+            const branchId = branch ? branch.id : null;
+            callback(branchId);
+          })
+          .withFailureHandler(function(error) {
+            console.error("Error fetching branch list:", error);
+            callback(null);
+          })
+          .getBranchList();
+      }
+
+      function attachRowClickHandlers() {
+        console.log("Attaching row click handlers");
+        const rows = document.querySelectorAll("#results table tr");
+        console.log("Found rows:", rows.length);
+        
+        // Create loading indicator if it doesn't exist
+        let loadingIndicator = document.getElementById("loadingIndicator");
+        if (!loadingIndicator) {
+          loadingIndicator = document.createElement("div");
+          loadingIndicator.id = "loadingIndicator";
+          loadingIndicator.className = "loading-indicator";
+          loadingIndicator.innerHTML = `
+            <div class="loading-spinner"></div>
+            <span>טוען פרטי פגישות...</span>
+          `;
+          document.getElementById("results").appendChild(loadingIndicator);
+        }
+
+        rows.forEach((row, index) => {
+          if (index === 0) return; // Skip header row
+          row.style.cursor = "pointer";
+          row.addEventListener("click", function() {
+            console.log("Row clicked");
+            const branchName = this.cells[0].innerText;
+            console.log("Branch name:", branchName);
+            
+            // Show loading indicator
+            loadingIndicator.style.display = "block";
+            
+            // Hide previous results while loading
+            const detailsContainer = document.getElementById("meetingDetailResults");
+            if (detailsContainer) {
+              detailsContainer.style.display = "none";
+            }
+
+            getBranchIdByName(branchName, function(branchId) {
+              console.log("Branch ID:", branchId);
+              if (!branchId) {
+                console.error("Branch ID not found for branch name:", branchName);
+                loadingIndicator.style.display = "none";
+                if (detailsContainer) detailsContainer.style.display = "block";
+                displayMeetingDetails(branchName, []);
+                return;
+              }
+
+              const month = document.getElementById("monthInput").value;
+              const startDate = month + "-01T00:00:00";
+              
+              const [year, monthNum] = month.split('-').map(num => parseInt(num, 10));
+              const nextMonth = (monthNum === 12) ? 1 : monthNum + 1;
+              const nextYear = (monthNum === 12) ? year + 1 : year;
+              const nextMonthDate = new Date(nextYear, nextMonth - 1, 1);
+              
+              const lastDayOfMonth = new Date(nextMonthDate.getTime() - 1);
+              const endDate = lastDayOfMonth.toISOString().slice(0, 10) + "T23:59:59";
+              
+              console.log("Date range:", startDate, "to", endDate);
+              
+              google.script.run
+                .withSuccessHandler(function(branchMeetings) {
+                  console.log("Meetings for Branch:", branchMeetings);
+                  loadingIndicator.style.display = "none";
+                  if (detailsContainer) detailsContainer.style.display = "block";
+                  displayMeetingDetails(branchName, branchMeetings);
+                })
+                .withFailureHandler(function(error) {
+                  console.error("Error fetching meetings:", error);
+                  loadingIndicator.style.display = "none";
+                  if (detailsContainer) detailsContainer.style.display = "block";
+                  displayMeetingDetails(branchName, []);
+                })
+                .getMeetingsWithInstructorNamesForBranch(branchId, startDate, endDate);
+            });
+          });
+        });
+      }
+
+      // Call this function after the table is rendered
+      document.addEventListener("DOMContentLoaded", function() {
+        attachRowClickHandlers();
+      });
+
+      // Add JavaScript functions for popup handling
+      function showPopup() {
+        // No longer needed - we're displaying directly in the page
+        console.log("Displaying meeting details directly in the page instead of popup");
+      }
+      
+      function closePopup() {
+        // No longer needed
+        console.log("No popup to close");
+      }
+
     </script>
+    <!-- Simple chat implementation with direct button -->
+    <div class="chat-button-float" onclick="window.n8nChat.open()">
+      <div class="chat-icon">💬</div>
+    </div>
+
+    <script type="module">
+      import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+      
+      // Create global namespace for chat
+      window.n8nChat = {
+        instance: null,
+        isOpen: false,
+        
+        // Function to remove welcome screen
+        forceRemoveWelcomeScreen: function() {
+          // First try to find and remove welcome screen
+          const removeWelcomeElements = () => {
+            // Remove any welcome screen elements
+            const welcomeScreen = document.querySelector('.chat-welcome-screen');
+            if (welcomeScreen) {
+              welcomeScreen.style.display = 'none';
+              welcomeScreen.innerHTML = '';
+            }
+            
+            // Remove the entire chat-header element to get rid of welcome text completely
+            const chatHeader = document.querySelector('.chat-header');
+            if (chatHeader) {
+              chatHeader.style.display = 'none';
+              chatHeader.innerHTML = '';
+            }
+            
+            // Force the chat container to display
+            const chatContainer = document.querySelector('.chat-container');
+            if (chatContainer) {
+              chatContainer.style.display = 'flex';
+            }
+            
+            // Also force display of the chat body
+            const chatBody = document.querySelector('.chat-body');
+            if (chatBody) {
+              chatBody.style.display = 'block';
+              // Make the chat body take full height since header is gone
+              chatBody.style.height = '100%';
+              chatBody.style.maxHeight = 'none';
+            }
+            
+            // Remove any welcome paragraphs
+            document.querySelectorAll('p').forEach(p => {
+              const text = p.textContent || '';
+              if (text.includes('Start a chat') || 
+                  text.includes('We\'re here to help') || 
+                  text.includes('Hi there')) {
+                p.style.display = 'none';
+                if (p.parentElement) {
+                  p.parentElement.style.display = 'none';
+                }
+              }
+            });
+          };
+          
+          // Call repeatedly to ensure welcome screen stays hidden
+          removeWelcomeElements();
+          setTimeout(removeWelcomeElements, 500);
+          setTimeout(removeWelcomeElements, 1000);
+          setTimeout(removeWelcomeElements, 2000);
+        },
+        
+        open: function() {
+          if (!this.isOpen) {
+            // Hide the floating button when opening chat
+            const chatButton = document.querySelector('.chat-button-float');
+            if (chatButton) {
+              chatButton.style.display = 'none';
+            }
+            
+            // Initialize chat only if not already open
+            this.instance = createChat({
+              webhookUrl: 'https://haitechn8n.duckdns.org/webhook/14627a06-22ba-4159-b788-025feab9912d/chat',
+              title: 'ברוך הבא לצ׳אט שלנו',
+              description: '',
+              primaryColor: '#ff6b6b',
+              mode: 'window',
+              position: 'left',
+              initialMessages: [],
+              showWelcomeScreen: false,
+              skipWelcomeScreen: true,
+              startWelcomeScreenMinimized: false,
+              showInputFieldImmediately: true,
+              showIconAvatar: false,
+              windowSize: 'large',
+              onReady: () => {
+                // Force the chat window to be on the left side after it's ready
+                this.forceLeftPosition();
+                
+                // Force a specific window size - larger than default
+                const chatWindow = document.querySelector('.chat-window');
+                if (chatWindow) {
+                  chatWindow.style.width = '400px';
+                  chatWindow.style.height = '550px';
+                  chatWindow.style.maxHeight = '80vh';
+                }
+
+                // Remove welcome message and related elements
+                this.forceRemoveWelcomeScreen();
+                
+                // Apply additional styling to hide welcome message with delay
+                setTimeout(() => {
+                  this.forceRemoveWelcomeScreen();
+                }, 100);
+              },
+              closeCallback: () => {
+                // Handle chat closing
+                if (this.instance) {
+                  this.instance = null;
+                  this.isOpen = false;
+                  
+                  // Show the floating button again when chat is closed
+                  const chatButton = document.querySelector('.chat-button-float');
+                  if (chatButton) {
+                    chatButton.style.display = 'flex';
+                  }
+                }
+              }
+            });
+            this.isOpen = true;
+          } else {
+            // Close existing chat
+            if (this.instance) {
+              this.instance.destroy();
+              this.instance = null;
+              this.isOpen = false;
+              
+              // Show the floating button again when chat is closed directly
+              const chatButton = document.querySelector('.chat-button-float');
+              if (chatButton) {
+                chatButton.style.display = 'flex';
+              }
+            }
+          }
+        },
+        
+        // Function to force the chat window to appear on the left
+        forceLeftPosition: function() {
+          // Start an observer to catch when the chat window is added to the DOM
+          const observer = new MutationObserver((mutations) => {
+            for(const mutation of mutations) {
+              if (mutation.addedNodes.length) {
+                const chatWindow = document.querySelector('.chat-window-wrapper');
+                const chatToggle = document.querySelector('.chat-window-toggle');
+                
+                if (chatWindow) {
+                  chatWindow.style.left = '20px';
+                  chatWindow.style.right = 'auto';
+                }
+                
+                if (chatToggle) {
+                  chatToggle.style.left = '20px';
+                  chatToggle.style.right = 'auto';
+                }
+              }
+            }
+          });
+          
+          // Start observing the document body for changes
+          observer.observe(document.body, { childList: true, subtree: true });
+          
+          // Also try to apply positioning directly after a short delay
+          setTimeout(() => {
+            const chatWindow = document.querySelector('.chat-window-wrapper');
+            const chatToggle = document.querySelector('.chat-window-toggle');
+            
+            if (chatWindow) {
+              chatWindow.style.left = '20px';
+              chatWindow.style.right = 'auto';
+            }
+            
+            if (chatToggle) {
+              chatToggle.style.left = '20px';
+              chatToggle.style.right = 'auto';
+            }
+          }, 100);
+        }
+      };
+    </script>
+
+    <style>
+      .chat-button-float {
+        position: fixed;
+        bottom: 15px;
+        left: 15px;
+        width: 40px;
+        height: 40px;
+        background-color: #ff6b6b;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 99999;
+        color: white;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        transition: transform 0.2s;
+      }
+      
+      .chat-button-float:hover {
+        transform: scale(1.1);
+      }
+      
+      .chat-icon {
+        font-size: 22px;
+      }
+      
+      /* Force chat window to appear on the left side */
+      div.chat-window-wrapper {
+        left: 20px !important;
+        right: auto !important;
+      }
+      
+      /* Fix arrow position for left-side chat */
+      div.chat-window-toggle {
+        left: 20px !important;
+        right: auto !important;
+      }
+    </style>
+
+    <!-- Override chat styles to ensure left positioning -->
+    <style>
+      .chat-window-wrapper {
+        left: 20px !important;
+        right: auto !important;
+        bottom: 20px !important;
+        top: auto !important;
+        width: 400px !important;
+        height: 550px !important;
+        position: fixed !important;
+      }
+      .chat-window-toggle {
+        left: 20px !important;
+        right: auto !important;
+        bottom: 20px !important;
+        top: auto !important;
+      }
+    </style>
+
+    <!-- Add the popup container to the HTML -->
+    <div class="popup-overlay" id="meetingPopup">
+      <div class="popup-content">
+        <span class="popup-close" onclick="closePopup()">&times;</span>
+        <div id="meetingDetails"></div>
+      </div>
+    </div>
   </body>
 </html>
