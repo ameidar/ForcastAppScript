@@ -188,7 +188,7 @@ function getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr) {
       objecttype: 6,
       page_size: pageSize,
       page_number: pageNumber,
-      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,pcfsystemfield542,pcfsystemfield498,statuscode,pcfsystemfield559,pcfsystemfield545",
+      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,pcfsystemfield542,pcfsystemfield498,statuscode,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560,pcfsystemfield566",
       query:
         "(scheduledstart >= " + startDateStr + ") AND " +
         "(scheduledstart < " + endDateStr + ") AND " +
@@ -234,60 +234,66 @@ function getMeetingsForRangeWithoutStatusFilter(startDateStr, endDateStr) {
 function processMeetingsBySivug(meetings, sivug) {
   var totalRevenue = 0;
   var totalCost = 0;
-  
+
   // Variables for grouping by cycle
   var privateCount = 0, privateSum = 0;
   var mosediCount = 0, mosediSum = 0;
   var mosediChildCount = 0, mosediChildSum = 0;
-  
+  var seminarCount = 0, seminarSum = 0; // כנסים/סדנאות
+
   // Variables for grouping by lesson
   var frontaliCount = 0, frontaliSum = 0;
   var privateLessonCount = 0, privateLessonSum = 0;
   var onlineCount = 0, onlineSum = 0;
   var supportCount = 0, supportSum = 0;
-  
+
   // For grouping by branch
   var branchMap = {};
-  
+
   // Process meetings in batches
   var batchSize = 1000;
   for (var i = 0; i < meetings.length; i += batchSize) {
     var endIndex = Math.min(i + batchSize, meetings.length);
     var batchMeetings = meetings.slice(i, endIndex);
-    
+
     for (var j = 0; j < batchMeetings.length; j++) {
       var meeting = batchMeetings[j];
       var cycleId = meeting.pcfsystemfield498;
       if (!cycleId) continue;
       var cycle = getCycleById(cycleId);
       if (!cycle) continue;
-      
-      // Initialize revenue and cost variables
+
+      var cType = parseInt(cycle.pcfsystemfield549 || "0", 10);
       var inc = 0;
       var cost = 0;
-      
-      // If the meeting has a status and it is "התקיימה", then use the actual values from the meeting
-      if (meeting.statuscode) {
-        // If there is a status, check if it's "התקיימה"
-        if (meeting.statuscode.trim() === "התקיימה") {
-          inc = parseFloat(meeting.pcfsystemfield559 || 0);
-          cost = parseFloat(meeting.pcfsystemfield545 || 0);
+
+      // חישוב מיוחד אם זה כנס / סדנה
+      if (cType === 4) {
+        if (meeting.statuscode && meeting.statuscode.trim() === "התקיימה") {
+          inc = parseFloat(meeting.pcfsystemfield560 || 0);
+          cost = 0; // לפי הדרישה שלך אין התייחסות לעלות במקרה הזה
         } else {
-          // For any other status, skip this meeting (do not include it)
-          continue; // (if within a loop) or simply skip adding its values.
+          inc = 0;
+          cost = 0;
         }
       } else {
-        // No status provided => use forecast logic
-        inc = getIncomePerMeeting(cycle);
-        cost = calculateMeetingCost(meeting);
+        if (meeting.statuscode) {
+          if (meeting.statuscode.trim() === "התקיימה") {
+            inc = parseFloat(meeting.pcfsystemfield559 || 0);
+            cost = parseFloat(meeting.pcfsystemfield545 || 0);
+          } else {
+            continue;
+          }
+        } else {
+          inc = getIncomePerMeeting(cycle);
+          cost = calculateMeetingCost(meeting);
+        }
       }
-      
+
       totalRevenue += inc;
       totalCost += cost;
-      
-      // Group the results according to the requested grouping type
+
       if (sivug === "cycle") {
-        var cType = parseInt(cycle.pcfsystemfield549 || "0", 10);
         if (cType === 1) {
           privateCount++;
           privateSum += inc;
@@ -297,6 +303,9 @@ function processMeetingsBySivug(meetings, sivug) {
         } else if (cType === 3) {
           mosediChildCount++;
           mosediChildSum += inc;
+        } else if (cType === 4) {
+          seminarCount++;
+          seminarSum += inc;
         }
       } else if (sivug === "lesson") {
         var lessonTypeText = (meeting.pcfsystemfield542 || "").trim();
@@ -331,18 +340,18 @@ function processMeetingsBySivug(meetings, sivug) {
         branchMap[branchName].sumRevenue += inc;
       }
     }
-    
+
     if (endIndex < meetings.length) {
       Utilities.sleep(500);
     }
   }
-  
+
   var result = {
     success: true,
     totalRevenue: totalRevenue,
     totalCost: totalCost
   };
-  
+
   if (sivug === "cycle") {
     result.privateCount = privateCount;
     result.privateSum = privateSum;
@@ -350,6 +359,8 @@ function processMeetingsBySivug(meetings, sivug) {
     result.mosediSum = mosediSum;
     result.mosediChildCount = mosediChildCount;
     result.mosediChildSum = mosediChildSum;
+    result.seminarCount = seminarCount;
+    result.seminarSum = seminarSum;
   } else if (sivug === "lesson") {
     result.frontaliCount = frontaliCount;
     result.frontaliSum = frontaliSum;
@@ -370,9 +381,10 @@ function processMeetingsBySivug(meetings, sivug) {
     }
     result.branchDetails = branchDetails;
   }
-  
+
   return result;
 }
+
 
 
 
@@ -673,20 +685,27 @@ function getCycleById(cycleId) {
 
 /***************************************************
  * getIncomePerMeeting – חישוב הכנסה לפגישה לפי סוג המחזור
- * pcfsystemfield549: 1=פרטי, 2=מוסדי, 3=מוסדי פר ילד
+ * pcfsystemfield549:
+ *   1 = פרטי
+ *   2 = מוסדי
+ *   3 = מוסדי פר ילד
+ *   4 = כנס / סדנה (ההכנסה מחושבת בפגישה עצמה)
  ***************************************************/
 function getIncomePerMeeting(cycle) {
   var cycleType = parseInt(cycle.pcfsystemfield549 || "0", 10);
   var numMeetings = parseInt(cycle.pcfsystemfield88 || "0", 10);
+
   switch (cycleType) {
     case 1: // פרטי
       if (numMeetings === 0) return 0;
       var totalPrivateIncome = getSumOfRegistrations(cycle.customobject1000id);
       var netAfterVAT = totalPrivateIncome / 1.18;
       return netAfterVAT / numMeetings;
+
     case 2: // מוסדי
       var totalMosedi = parseFloat(cycle.pcfsystemfield550 || 0);
       return totalMosedi / 1.18;
+
     case 3: // מוסדי פר ילד
       var kidsCount = parseFloat(cycle.pcfsystemfield192 || 0);
       if (kidsCount === 0) {
@@ -694,10 +713,15 @@ function getIncomePerMeeting(cycle) {
       }
       var pricePerKid = parseFloat(cycle.pcfsystemfield551 || 0);
       return kidsCount * pricePerKid;
+
+    case 4: // כנס / סדנה
+      return 0; // לא מחושב כאן, אלא בפונקציית processMeetingsBySivug
+
     default:
       return 0;
   }
 }
+
 
 /***************************************************
  * getSumOfRegistrations – שליפת סכום הרשמות (ObjectType=33)
@@ -954,43 +978,32 @@ function clearAllCaches() {
   Logger.log("All caches cleared");
 }
 
-/**
- * exportForecastToNewSheet – מייצאת את תוצאת התחזית לדוח בגוגל שיטס חדש.
- * הקובץ נוצר מהקוד ולא מתווסף לגליון קיים.
- *
- * @param {object} result - אובייקט התחזית, לדוגמה כפי שמוחזר מ־calcWeeklyForecastSS, calcMonthlyForecastSS או calcDailyForecastSS.
- * @param {string} sheetName - שם הקובץ לדוגמה "Forecast Report April 2025"
- * @return {string} ה-URL של הגיליון החדש.
- */
 function exportForecastToNewSheet(result, sheetName) {
   try {
-    // צור קובץ חדש עם השם המבוקש
     var ss = SpreadsheetApp.create(sheetName);
     var sheet = ss.getActiveSheet();
     sheet.clear();
-    
-    // בנה מערך של שורות לכתיבה
+
     var rows = [];
-    
-    // הוסף כותרת ראשית
+
     rows.push(["דוח תחזית", sheetName]);
-    // במקום להוסיף שורות ריקות כ[]
     rows.push(["", ""]);
-    
-    // הוסף שורות עם סך ההכנסה וההוצאה
+
     rows.push(["סך הכנסה", result.totalRevenue]);
     rows.push(["סך הוצאה", result.totalCost]);
     rows.push(["", ""]);
-    
-    // הוסף פירוט בהתאם לסיווג
+
     if (result.privateCount !== undefined) {  // sivug = "cycle"
       rows.push(["סיווג לפי סוג מחזור"]);
       rows.push(["מחזור פרטי", result.privateCount, result.privateSum]);
       rows.push(["מחזור מוסדי", result.mosediCount, result.mosediSum]);
       rows.push(["מוסדי פר ילד", result.mosediChildCount, result.mosediChildSum]);
+      if (result.seminarCount !== undefined) {
+        rows.push(["מחזור כנס/סדנה", result.seminarCount, result.seminarSum]);
+      }
       rows.push(["", ""]);
     }
-    
+
     if (result.frontaliCount !== undefined) {  // sivug = "lesson"
       rows.push(["סיווג לפי סוג ההדרכה"]);
       rows.push(["שיעור פרונטאלי", result.frontaliCount, result.frontaliSum]);
@@ -999,7 +1012,7 @@ function exportForecastToNewSheet(result, sheetName) {
       rows.push(["תמיכה", result.supportCount, result.supportSum]);
       rows.push(["", ""]);
     }
-    
+
     if (result.branchDetails && result.branchDetails.length > 0) {  // sivug = "branch"
       rows.push(["סיווג לפי סניף"]);
       rows.push(["שם הסניף", "מספר מפגשים", "סך הכנסה"]);
@@ -1009,35 +1022,33 @@ function exportForecastToNewSheet(result, sheetName) {
       }
       rows.push(["", ""]);
     }
-    
-    // חשב את מספר העמודות המקסימלי בכל השורות
+
     var maxCols = 0;
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].length > maxCols) {
         maxCols = rows[i].length;
       }
     }
-    
-    // מלא כל שורה בערכים ריקים עד שתגיע לאורך maxCols
+
     for (var i = 0; i < rows.length; i++) {
       while (rows[i].length < maxCols) {
         rows[i].push("");
       }
     }
-    
-    // כתיבה לגיליון
+
     sheet.getRange(1, 1, rows.length, maxCols).setValues(rows);
     sheet.autoResizeColumns(1, maxCols);
-    
+
     var url = ss.getUrl();
     Logger.log("Forecast exported to new spreadsheet: " + url);
     return url;
-    
+
   } catch (e) {
     Logger.log("Error in exportForecastToNewSheet: " + e);
     throw e;
   }
 }
+
 
 /**
  * compareMonthlyForecastByBranch – משווה בין שני חודשים (לפי סניף)
@@ -1156,23 +1167,6 @@ function exportCompareToSheet(compareResult, reportName) {
   }
 }
 
-/**
- * calcPastForecast - מחשבת סיכום לפגישות שהתקיימו בטווח תאריכים נתון.
- * החישוב מבוסס על השדות:
- *    pcfsystemfield559 – הכנסה מהמפגש
- *    pcfsystemfield545 – סכום לתשלום עבור הפגישה
- *    pcfsystemfield560 – רווח מהמפגש
- *
- * הפונקציה מאפשרת סינון לפי sivug:
- *    "cycle" - לפי סוג המחזור (pcfsystemfield549)
- *    "lesson" - לפי סוג ההדרכה (pcfsystemfield542, כטקסט)
- *    "branch" - לפי סניף (מומר באמצעות getBranchName מ־cycle.pcfsystemfield451)
- *
- * @param {string} startDateStr - תאריך התחלה בפורמט ISO (למשל "2025-04-01T00:00:00")
- * @param {string} endDateStr - תאריך סיום בפורמט ISO (למשל "2025-05-01T00:00:00")
- * @param {string} sivug - "cycle", "lesson" או "branch"
- * @return {object} אובייקט עם success=true, totalIncome, totalPayment, totalProfit ו-breakdown בהתאם לסיווג.
- */
 function calcPastForecast(startDateStr, endDateStr, sivug) {
   Logger.log("calcPastForecast called: start=" + startDateStr + ", end=" + endDateStr + ", sivug=" + sivug);
   
@@ -1183,79 +1177,65 @@ function calcPastForecast(startDateStr, endDateStr, sivug) {
   var totalPayment = 0;
   var totalProfit = 0;
   
-  // לאגרגציה לפי סיווג
   var groupData = {};
   
   for (var i = 0; i < meetings.length; i++) {
     var m = meetings[i];
     
-    // **סינון לפי statuscode אחרי השליפה**:
     if (m.statuscode !== "התקיימה") {
-      continue; // מדלגים על בוטלה/נדחתה וכו'
+      continue;
     }
-    
-    // לקיחת הערכים מהשדה
-    var income = parseFloat(m.pcfsystemfield559 || 0);
-    var payment = parseFloat(m.pcfsystemfield545 || 0);
-    var profit = parseFloat(m.pcfsystemfield560 || 0);
-    
+
+    var cycleId = m.pcfsystemfield498;
+    if (!cycleId) continue;
+    var cycle = getCycleById(cycleId);
+    if (!cycle) continue;
+
+    var cType = parseInt(cycle.pcfsystemfield549 || "0", 10);
+
+    var income = 0, payment = 0, profit = 0;
+
+    if (cType === 4) {
+      // סדנה/כנס – מחשבים רק לפי רווח מהפגישה
+      profit = parseFloat(m.pcfsystemfield560 || 0);
+      income = profit;
+      payment = 0;
+    } else {
+      // רגיל
+      income = parseFloat(m.pcfsystemfield559 || 0);
+      payment = parseFloat(m.pcfsystemfield545 || 0);
+      profit = parseFloat(m.pcfsystemfield560 || 0);
+    }
+
     totalIncome += income;
     totalPayment += payment;
     totalProfit += profit;
-    
+
+    var key = "";
+
     if (sivug === "cycle") {
-      // סינון לפי סוג המחזור
-      var cycleId = m.pcfsystemfield498;
-      if (!cycleId) continue;
-      var cycle = getCycleById(cycleId);
-      if (!cycle) continue;
-      var cType = parseInt(cycle.pcfsystemfield549 || "0", 10);
-      var key = "";
       if (cType === 1) key = "פרטי";
       else if (cType === 2) key = "מוסדי";
       else if (cType === 3) key = "מוסדי פר ילד";
+      else if (cType === 4) key = "כנס/סדנה";
       else key = "אחר";
-      
-      if (!groupData[key]) {
-        groupData[key] = { count: 0, income: 0, payment: 0, profit: 0 };
-      }
-      groupData[key].count++;
-      groupData[key].income += income;
-      groupData[key].payment += payment;
-      groupData[key].profit += profit;
-      
     } else if (sivug === "lesson") {
-      var lessonTypeText = (m.pcfsystemfield542 || "").trim();
-      var key = lessonTypeText || "לא מוגדר";
-      
-      if (!groupData[key]) {
-        groupData[key] = { count: 0, income: 0, payment: 0, profit: 0 };
-      }
-      groupData[key].count++;
-      groupData[key].income += income;
-      groupData[key].payment += payment;
-      groupData[key].profit += profit;
-      
+      key = (m.pcfsystemfield542 || "").trim() || "לא מוגדר";
     } else if (sivug === "branch") {
-      var cycleId = m.pcfsystemfield498;
-      if (!cycleId) continue;
-      var cycle = getCycleById(cycleId);
-      if (!cycle) continue;
       var branchId = cycle.pcfsystemfield451;
-      var branchName = getBranchName(branchId);
-      var key = branchName;
-      
-      if (!groupData[key]) {
-        groupData[key] = { count: 0, income: 0, payment: 0, profit: 0 };
-      }
-      groupData[key].count++;
-      groupData[key].income += income;
-      groupData[key].payment += payment;
-      groupData[key].profit += profit;
+      key = getBranchName(branchId);
     }
+
+    if (!groupData[key]) {
+      groupData[key] = { count: 0, income: 0, payment: 0, profit: 0 };
+    }
+
+    groupData[key].count++;
+    groupData[key].income += income;
+    groupData[key].payment += payment;
+    groupData[key].profit += profit;
   }
-  
-  // המרת groupData למערך
+
   var breakdown = [];
   for (var k in groupData) {
     breakdown.push({
@@ -1266,7 +1246,7 @@ function calcPastForecast(startDateStr, endDateStr, sivug) {
       profit: groupData[k].profit
     });
   }
-  
+
   return {
     success: true,
     totalIncome: totalIncome,
@@ -1275,6 +1255,7 @@ function calcPastForecast(startDateStr, endDateStr, sivug) {
     breakdown: breakdown
   };
 }
+
 
 
 /**
@@ -1300,7 +1281,7 @@ function getPastMeetingsForRange(startDateStr, endDateStr) {
       objecttype: 6,
       page_size: pageSize,
       page_number: pageNumber,
-      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560",
+      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560,pcfsystemfield566",
       query:
       "(scheduledstart >= " + startDateStr + ") AND " +
       "(scheduledstart < " + endDateStr + ") AND " +
@@ -1451,7 +1432,7 @@ function getAllMeetingsForRange(startDateStr, endDateStr) {
       objecttype: 6,
       page_size: pageSize,
       page_number: pageNumber,
-      fields: "activityid,scheduledstart,scheduledend,statuscode,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560,pcfsystemfield542",
+      fields: "activityid,scheduledstart,scheduledend,statuscode,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560,pcfsystemfield542,pcfsystemfield566",
       query:
         "(scheduledstart >= " + startDateStr + ") AND " +
         "(scheduledstart <= " + endDateStr + ") AND " +
@@ -1799,7 +1780,7 @@ function getMeetingsForCycle(cycleId, startDateStr, endDateStr) {
       objecttype: 6,
       page_size: pageSize,
       page_number: pageNumber,
-      fields: "activityid, scheduledstart, scheduledend, pcfsystemfield485, pcfsystemfield542, pcfsystemfield498, statuscode, pcfsystemfield559, pcfsystemfield545, pcfsystemfield560",
+      fields: "activityid, scheduledstart, scheduledend, pcfsystemfield485, pcfsystemfield542, pcfsystemfield498, statuscode, pcfsystemfield559, pcfsystemfield545, pcfsystemfield560,pcfsystemfield566",
       query:
         "(scheduledstart >= " + startDateStr + ") AND " +
         "(scheduledstart < " + endDateStr + ") AND " +
@@ -2590,7 +2571,7 @@ function searchMeetings(params) {
       objecttype: 6, // meetings
       page_size: pageSize,
       page_number: pageNumber,
-      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560",
+      fields: "activityid,scheduledstart,scheduledend,pcfsystemfield485,statuscode,pcfsystemfield542,pcfsystemfield498,pcfsystemfield559,pcfsystemfield545,pcfsystemfield560, pcfsystemfield566",
       query: query.join(" AND ")
     };
 
@@ -4047,7 +4028,7 @@ function listInstructorNames() {
 
 // Add a test function to run the monthly forecast for May by branches
 function testMonthlyForecastMayByBranch() {
-  const monthStr = "2025-04"; // April 2025
+  const monthStr = "2025-05"; // April 2025
   const sivug = "branch"; // Grouping by branch
   Logger.log("Running monthly forecast for May 2025 by branch...");
   const result = calcMonthlyForecastSS(monthStr, sivug);
@@ -4242,24 +4223,6 @@ function getInstructorNameById(instructorId) {
   return guide ? guide.name : "לא נמצא";
 }
 
-/**
- * getMeetingsWithInstructorNamesForBranch - Get branch meetings with instructor names
- * @param {string} branchId - ID of the branch
- * @param {string} startDateStr - Start date in ISO format
- * @param {string} endDateStr - End date in ISO format
- * @return {Array} - Array of meetings with instructor names added
- */
-function getMeetingsWithInstructorNamesForBranch(branchId, startDateStr, endDateStr) {
-  var meetings = getMeetingsForBranchRange(branchId, startDateStr, endDateStr);
-  
-  // Add instructor names to each meeting
-  for (var i = 0; i < meetings.length; i++) {
-    var instructorId = meetings[i].pcfsystemfield485;
-    meetings[i].instructorName = getInstructorNameById(instructorId);
-  }
-  
-  return meetings;
-}
 
 /**
  * getMeetingsWithInstructorNamesForBranch - Get branch meetings with instructor names
@@ -4300,7 +4263,7 @@ function getMeetingsWithInstructorNamesForBranch(branchId, startDateStr, endDate
  * for May 2025 for a specific branch using getMeetingsWithInstructorNamesForBranch
  */
 function testBranchFutureIncomeForMay2025() {
-  const branchId = "b1222c67-e70b-4048-aab5-aada245a0391";
+  const branchId = "e7085501-d39e-493b-8981-b1dd6e1b5a0e";
   const startDate = "2025-05-01T00:00:00";
   const endDate = "2025-05-31T23:59:59";
   
@@ -4323,6 +4286,7 @@ function testBranchFutureIncomeForMay2025() {
   meetings.forEach((meeting, index) => {
     const status = meeting.statuscode || '';
     const isCompleted = (status === 'התקיימה' || status === '4');
+    const meetingType = meeting.pcfsystemfield566;
     
     if (isCompleted) {
       // For completed meetings, use actual values
@@ -4472,3 +4436,393 @@ function testGetCyclesForNitzanim() {
   return potentialMatches;
 }
 
+
+/***************************************************
+ * פונקציות הזמנות מוסדיות - ObjectType 1005
+ ***************************************************/
+
+function getInstitutionalOrders(statusFilter, orderTypeFilter, branchFilter) {
+  Logger.log("getInstitutionalOrders called with filters: status=" + statusFilter + ", type=" + orderTypeFilter + ", branch=" + branchFilter);
+  
+  var allResults = [];
+  var pageNumber = 1;
+  var pageSize = 500;
+  var maxPages = 100;
+  
+  var queryConditions = [];
+  
+  if (statusFilter) {
+    queryConditions.push("(pcfsystemfield182 = '" + statusFilter + "')");
+  }
+  
+  if (orderTypeFilter) {
+    queryConditions.push("(pcfsystemfield187 = '" + orderTypeFilter + "')");
+  }
+  
+  if (branchFilter) {
+    queryConditions.push("(pcfsystemfield181 = " + branchFilter + ")");
+  }
+  
+  var query = queryConditions.length > 0 ? queryConditions.join(" AND ") : "";
+  
+  while (true) {
+    Logger.log("Fetching institutional orders page=" + pageNumber);
+    var queryPayload = {
+      objecttype: 1005,
+      page_size: pageSize,
+      page_number: pageNumber,
+      fields: "customobject1005id,name,pcfsystemfield181,pcfsystemfield182,pcfsystemfield176,pcfsystemfield187,pcfsystemfield192,pcfsystemfield183",
+      query: query
+    };
+    
+    var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+    if (!data) {
+      Logger.log("Error or null returned for page " + pageNumber + ", stopping.");
+      break;
+    }
+    
+    var chunk = (data.data && data.data.Data) ? data.data.Data : [];
+    Logger.log("Got " + chunk.length + " institutional orders in this page.");
+    allResults = allResults.concat(chunk);
+    
+    if (chunk.length < pageSize || pageNumber >= maxPages) {
+      Logger.log("Less than pageSize or reached maxPages => stopping pagination.");
+      break;
+    }
+    
+    pageNumber++;
+    Utilities.sleep(300);
+  }
+  
+  Logger.log("Total institutional orders after pagination: " + allResults.length);
+  return allResults;
+}
+
+function getInstitutionalOrdersByStatus(status) {
+  Logger.log("getInstitutionalOrdersByStatus called for status: " + status);
+  return getInstitutionalOrders(status, null, null);
+}
+
+function analyzeInstitutionalOrders(orders) {
+  var analysis = {
+    totalOrders: orders.length,
+    totalAmount: 0,
+    byStatus: {},
+    byOrderType: {},
+    byBranch: {},
+    byExecutor: {},
+    averageAmount: 0,
+    oldestOrder: null,
+    newestOrder: null
+  };
+  
+  var oldestDate = null;
+  var newestDate = null;
+  
+  for (var i = 0; i < orders.length; i++) {
+    var order = orders[i];
+    var amount = parseFloat(order.pcfsystemfield192 || 0);
+    var status = order.pcfsystemfield182 || "לא צויין";
+    var orderType = order.pcfsystemfield187 || "לא צויין";
+    var branchId = order.pcfsystemfield181;
+    var branchName = getBranchName(branchId);
+    var executor = order.pcfsystemfield183 || "לא צויין";
+    var createDate = order.pcfsystemfield176;
+    
+    analysis.totalAmount += amount;
+    
+    if (!analysis.byStatus[status]) {
+      analysis.byStatus[status] = { count: 0, totalAmount: 0 };
+    }
+    analysis.byStatus[status].count++;
+    analysis.byStatus[status].totalAmount += amount;
+    
+    if (!analysis.byOrderType[orderType]) {
+      analysis.byOrderType[orderType] = { count: 0, totalAmount: 0 };
+    }
+    analysis.byOrderType[orderType].count++;
+    analysis.byOrderType[orderType].totalAmount += amount;
+    
+    if (!analysis.byBranch[branchName]) {
+      analysis.byBranch[branchName] = { count: 0, totalAmount: 0 };
+    }
+    analysis.byBranch[branchName].count++;
+    analysis.byBranch[branchName].totalAmount += amount;
+    
+    if (!analysis.byExecutor[executor]) {
+      analysis.byExecutor[executor] = { count: 0, totalAmount: 0 };
+    }
+    analysis.byExecutor[executor].count++;
+    analysis.byExecutor[executor].totalAmount += amount;
+    
+    if (createDate) {
+      var orderDate = new Date(createDate);
+      if (!oldestDate || orderDate < oldestDate) {
+        oldestDate = orderDate;
+        analysis.oldestOrder = order;
+      }
+      if (!newestDate || orderDate > newestDate) {
+        newestDate = orderDate;
+        analysis.newestOrder = order;
+      }
+    }
+  }
+  
+  analysis.averageAmount = analysis.totalOrders > 0 ? analysis.totalAmount / analysis.totalOrders : 0;
+  
+  return analysis;
+}
+
+function getInstitutionalOrdersInTrackingAndCollection() {
+  Logger.log("getInstitutionalOrdersInTrackingAndCollection called");
+  
+  try {
+    var trackingOrders = getInstitutionalOrdersByStatus("מעקב");
+    var collectionOrders = getInstitutionalOrdersByStatus("גבייה");
+    
+    var allOrders = trackingOrders.concat(collectionOrders);
+    
+    if (allOrders.length === 0) {
+      return {
+        success: false,
+        message: "לא נמצאו הזמנות מוסדיות בסטטוס מעקב או גבייה"
+      };
+    }
+    
+    var analysis = analyzeInstitutionalOrders(allOrders);
+    
+    var html = "<h3>הזמנות מוסדיות בסטטוס מעקב וגבייה</h3>";
+    html += "<h4>סיכום:</h4>";
+    html += "סה״כ הזמנות: <b>" + allOrders.length + "</b><br>";
+    html += "סה״כ סכום: <b>" + analysis.totalAmount.toFixed(2) + " ₪</b><br>";
+    html += "מהן במעקב: <b>" + trackingOrders.length + "</b><br>";
+    html += "מהן בגבייה: <b>" + collectionOrders.length + "</b><br><br>";
+    
+    html += "<h4>פירוט הזמנות:</h4>";
+    html += "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+    html += "<tr><th>שם ההזמנה</th><th>סניף</th><th>סטטוס</th><th>סוג הזמנה</th><th>סכום</th><th>מבצע</th><th>תאריך יצירה</th></tr>";
+    
+    for (var i = 0; i < allOrders.length; i++) {
+      var order = allOrders[i];
+      var branchName = getBranchName(order.pcfsystemfield181);
+      var createDate = order.pcfsystemfield176 ? new Date(order.pcfsystemfield176).toLocaleDateString('he-IL') : "לא צויין";
+      
+      html += "<tr>";
+      html += "<td>" + (order.name || "לא צויין") + "</td>";
+      html += "<td>" + branchName + "</td>";
+      html += "<td>" + (order.pcfsystemfield182 || "לא צויין") + "</td>";
+      html += "<td>" + (order.pcfsystemfield187 || "לא צויין") + "</td>";
+      html += "<td>" + parseFloat(order.pcfsystemfield192 || 0).toFixed(2) + " ₪</td>";
+      html += "<td>" + (order.pcfsystemfield183 || "לא צויין") + "</td>";
+      html += "<td>" + createDate + "</td>";
+      html += "</tr>";
+    }
+    html += "</table>";
+    
+    return {
+      success: true,
+      html: html,
+      data: analysis,
+      orders: allOrders
+    };
+    
+  } catch (error) {
+    Logger.log("Error in getInstitutionalOrdersInTrackingAndCollection: " + error.toString());
+    return {
+      success: false,
+      message: "שגיאה בשליפת הזמנות מוסדיות: " + error.toString()
+    };
+  }
+}
+
+function showInstitutionalOrdersReport() {
+  Logger.log("showInstitutionalOrdersReport called");
+  
+  try {
+    var orders = getInstitutionalOrders(null, null, null);
+    if (!orders || orders.length === 0) {
+      return {
+        success: false,
+        message: "לא נמצאו הזמנות מוסדיות במערכת"
+      };
+    }
+    
+    var analysis = analyzeInstitutionalOrders(orders);
+    
+    var html = "<h3>דוח הזמנות מוסדיות מפורט</h3>";
+    html += "<h4>סיכום כללי:</h4>";
+    html += "סה״כ הזמנות: <b>" + analysis.totalOrders + "</b><br>";
+    html += "סה״כ סכום: <b>" + analysis.totalAmount.toFixed(2) + " ₪</b><br>";
+    html += "ממוצע להזמנה: <b>" + analysis.averageAmount.toFixed(2) + " ₪</b><br><br>";
+    
+    html += "<h4>פירוט לפי סטטוס:</h4>";
+    html += "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+    html += "<tr><th>סטטוס</th><th>כמות הזמנות</th><th>סכום כולל</th></tr>";
+    for (var status in analysis.byStatus) {
+      var statusData = analysis.byStatus[status];
+      html += "<tr><td>" + status + "</td><td>" + statusData.count + "</td><td>" + statusData.totalAmount.toFixed(2) + " ₪</td></tr>";
+    }
+    html += "</table><br>";
+    
+    html += "<h4>פירוט לפי סוג הזמנה:</h4>";
+    html += "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+    html += "<tr><th>סוג הזמנה</th><th>כמות הזמנות</th><th>סכום כולל</th></tr>";
+    for (var orderType in analysis.byOrderType) {
+      var typeData = analysis.byOrderType[orderType];
+      html += "<tr><td>" + orderType + "</td><td>" + typeData.count + "</td><td>" + typeData.totalAmount.toFixed(2) + " ₪</td></tr>";
+    }
+    html += "</table><br>";
+    
+    html += "<h4>פירוט לפי סניף:</h4>";
+    html += "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+    html += "<tr><th>סניף</th><th>כמות הזמנות</th><th>סכום כולל</th></tr>";
+    for (var branch in analysis.byBranch) {
+      var branchData = analysis.byBranch[branch];
+      html += "<tr><td>" + branch + "</td><td>" + branchData.count + "</td><td>" + branchData.totalAmount.toFixed(2) + " ₪</td></tr>";
+    }
+    html += "</table><br>";
+    
+    return {
+      success: true,
+      html: html,
+      data: analysis,
+      orders: orders
+    };
+    
+  } catch (error) {
+    Logger.log("Error in showInstitutionalOrdersReport: " + error.toString());
+    return {
+      success: false,
+      message: "שגיאה בהפקת דוח הזמנות מוסדיות: " + error.toString()
+    };
+  }
+}
+
+function exportInstitutionalOrdersToSheet(ordersData, sheetName) {
+  try {
+    var ss = SpreadsheetApp.create(sheetName || "דוח הזמנות מוסדיות");
+    var sheet = ss.getActiveSheet();
+    sheet.clear();
+    
+    var rows = [];
+    
+    rows.push(["דוח הזמנות מוסדיות", sheetName || ""]);
+    rows.push(["", ""]);
+    
+    if (ordersData.data) {
+      rows.push(["סיכום כללי"]);
+      rows.push(["סה״כ הזמנות", ordersData.data.totalOrders]);
+      rows.push(["סה״כ סכום", ordersData.data.totalAmount]);
+      rows.push(["ממוצע להזמנה", ordersData.data.averageAmount]);
+      rows.push(["", ""]);
+    }
+    
+    rows.push(["שם ההזמנה", "סניף", "סטטוס", "סוג הזמנה", "סכום", "מבצע", "תאריך יצירה"]);
+    
+    if (ordersData.orders) {
+      for (var i = 0; i < ordersData.orders.length; i++) {
+        var order = ordersData.orders[i];
+        var branchName = getBranchName(order.pcfsystemfield181);
+        var createDate = order.pcfsystemfield176 ? new Date(order.pcfsystemfield176).toLocaleDateString('he-IL') : "לא צויין";
+        
+        rows.push([
+          order.name || "לא צויין",
+          branchName,
+          order.pcfsystemfield182 || "לא צויין",
+          order.pcfsystemfield187 || "לא צויין",
+          parseFloat(order.pcfsystemfield192 || 0),
+          order.pcfsystemfield183 || "לא צויין",
+          createDate
+        ]);
+      }
+    }
+    
+    if (rows.length > 0) {
+      var range = sheet.getRange(1, 1, rows.length, 7);
+      range.setValues(rows);
+      
+      sheet.getRange(1, 1, 1, 7).setFontWeight("bold");
+      sheet.getRange(5, 1, 1, 7).setFontWeight("bold");
+      sheet.autoResizeColumns(1, 7);
+    }
+    
+    return ss.getUrl();
+    
+  } catch (error) {
+    Logger.log("Error in exportInstitutionalOrdersToSheet: " + error.toString());
+    throw new Error("שגיאה בייצוא לגוגל שיטס: " + error.toString());
+  }
+}
+
+function searchInstitutionalOrders(searchParams) {
+  Logger.log("searchInstitutionalOrders called with params: " + JSON.stringify(searchParams));
+  
+  var queryConditions = [];
+  
+  if (searchParams.name) {
+    queryConditions.push("(name contains '" + searchParams.name + "')");
+  }
+  
+  if (searchParams.status) {
+    queryConditions.push("(pcfsystemfield182 = '" + searchParams.status + "')");
+  }
+  
+  if (searchParams.orderType) {
+    queryConditions.push("(pcfsystemfield187 = '" + searchParams.orderType + "')");
+  }
+  
+  if (searchParams.branchId) {
+    queryConditions.push("(pcfsystemfield181 = " + searchParams.branchId + ")");
+  }
+  
+  if (searchParams.executor) {
+    queryConditions.push("(pcfsystemfield183 contains '" + searchParams.executor + "')");
+  }
+  
+  if (searchParams.minAmount) {
+    queryConditions.push("(pcfsystemfield192 >= " + searchParams.minAmount + ")");
+  }
+  
+  if (searchParams.maxAmount) {
+    queryConditions.push("(pcfsystemfield192 <= " + searchParams.maxAmount + ")");
+  }
+  
+  var query = queryConditions.length > 0 ? queryConditions.join(" AND ") : "";
+  
+  var allResults = [];
+  var pageNumber = 1;
+  var pageSize = 500;
+  var maxPages = 100;
+  
+  while (true) {
+    Logger.log("Fetching institutional orders page=" + pageNumber);
+    var queryPayload = {
+      objecttype: 1005,
+      page_size: pageSize,
+      page_number: pageNumber,
+      fields: "customobject1005id,name,pcfsystemfield181,pcfsystemfield182,pcfsystemfield176,pcfsystemfield187,pcfsystemfield192,pcfsystemfield183",
+      query: query
+    };
+    
+    var data = sendRequestWithRetry(QUERY_API_URL, queryPayload, MAX_RETRIES, RETRY_DELAY_MS);
+    if (!data) {
+      Logger.log("Error or null returned for page " + pageNumber + ", stopping.");
+      break;
+    }
+    
+    var chunk = (data.data && data.data.Data) ? data.data.Data : [];
+    Logger.log("Got " + chunk.length + " institutional orders in this page.");
+    allResults = allResults.concat(chunk);
+    
+    if (chunk.length < pageSize || pageNumber >= maxPages) {
+      Logger.log("Less than pageSize or reached maxPages => stopping pagination.");
+      break;
+    }
+    
+    pageNumber++;
+    Utilities.sleep(300);
+  }
+  
+  Logger.log("Total institutional orders after pagination: " + allResults.length);
+  return allResults;
+}

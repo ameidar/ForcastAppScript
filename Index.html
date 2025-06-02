@@ -17,6 +17,58 @@
       google.charts.load('current', {packages:['corechart']});
     </script>
     <style>
+      #institutionalOrdersResults {
+  margin-top: 20px;
+  background: rgba(10, 22, 42, 0.8);
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(0, 200, 255, 0.3);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 200, 255, 0.3);
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.5);
+  line-height: 1.7;
+}
+
+#institutionalOrdersResults h3, #institutionalOrdersResults h4 {
+  color: #4cc9f0;
+  text-shadow: 0 0 10px rgba(76, 201, 240, 0.3);
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 500;
+  font-size: 1.6em;
+}
+
+#institutionalOrdersResults b {
+  color: #70e0ff;
+  text-shadow: 0 0 2px rgba(0, 200, 255, 0.3);
+}
+
+#institutionalOrdersResults table {
+  background: rgba(0, 10, 30, 0.95);
+}
+
+.search-filters {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid rgba(76, 201, 240, 0.2);
+  border-radius: 12px;
+  background: rgba(26, 26, 46, 0.4);
+}
+
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.search-filters h4 {
+  color: #4cc9f0;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.3em;
+}
       body {
         direction: rtl;
         font-family: 'Rubik', sans-serif;
@@ -657,12 +709,57 @@
         <div id="activeCyclesResults"></div>
       </div>
 
-      <!-- הוספת אזור חדש להזמנות מוסדיות -->
+      
+
       <div class="section" id="institutionalOrdersSection">
         <h2>הזמנות מוסדיות</h2>
         <div class="button-group">
           <button id="showInstitutionalOrdersBtn" onclick="showInstitutionalOrders()">הצג הזמנות מוסדיות בסטטוס מעקב וגבייה</button>
+          <button id="showAllOrdersBtn" onclick="showAllInstitutionalOrders()">הצג כל ההזמנות המוסדיות</button>
+          <button id="exportOrdersBtn" onclick="exportInstitutionalOrders()">ייצא דוח הזמנות מוסדיות</button>
         </div>
+        
+        <!-- אזור חיפוש מתקדם -->
+        <div class="search-filters">
+          <h4>חיפוש מתקדם הזמנות מוסדיות:</h4>
+          <div class="search-grid">
+            <label>
+              שם ההזמנה:
+              <input type="text" id="searchOrderName" placeholder="חפש לפי שם...">
+            </label>
+            <label>
+              סטטוס:
+              <select id="searchOrderStatus">
+                <option value="">כל הסטטוסים</option>
+                <option value="מעקב">מעקב</option>
+                <option value="גבייה">גבייה</option>
+                <option value="הושלם">הושלם</option>
+                <option value="בוטל">בוטל</option>
+              </select>
+            </label>
+            <label>
+              סוג הזמנה:
+              <input type="text" id="searchOrderType" placeholder="סוג ההזמנה...">
+            </label>
+            <label>
+              מבצע:
+              <input type="text" id="searchOrderExecutor" placeholder="שם המבצע...">
+            </label>
+            <label>
+              סכום מינימלי:
+              <input type="number" id="searchMinAmount" placeholder="0" min="0">
+            </label>
+            <label>
+              סכום מקסימלי:
+              <input type="number" id="searchMaxAmount" placeholder="999999" min="0">
+            </label>
+          </div>
+          <div class="button-group">
+            <button onclick="searchInstitutionalOrders()">חפש הזמנות</button>
+            <button onclick="clearOrderSearch()">נקה חיפוש</button>
+          </div>
+        </div>
+        
         <div id="institutionalOrdersResults"></div>
       </div>
 
@@ -710,6 +807,7 @@
     <div id="notification"></div>
     
     <script>
+      var institutionalOrdersData = null;
       var forecastResult = null;
       var compareResult = null;
       var pastResult = null;
@@ -740,6 +838,9 @@
         document.getElementById("showInstitutionalOrdersBtn").disabled = true;
         document.getElementById("compareCycleEndDatesBtn").disabled = true;
         document.getElementById("showDigitalRegistrationsBtn").disabled = true;
+        document.getElementById("showInstitutionalOrdersBtn").disabled = true;
+        document.getElementById("showAllOrdersBtn").disabled = true;
+        document.getElementById("exportOrdersBtn").disabled = true;
       }
       
       function enableForecastButtons() {
@@ -758,6 +859,9 @@
         document.getElementById("showInstitutionalOrdersBtn").disabled = false;
         document.getElementById("compareCycleEndDatesBtn").disabled = false;
         document.getElementById("showDigitalRegistrationsBtn").disabled = false;
+        document.getElementById("showInstitutionalOrdersBtn").disabled = false;
+        document.getElementById("showAllOrdersBtn").disabled = false;
+        document.getElementById("exportOrdersBtn").disabled = false;
       }
       
       // ---- חישוב תחזית עתידית ----
@@ -1758,23 +1862,29 @@
           let noStatusCount = 0;
           
           meetings.forEach(meeting => {
-            const status = meeting.statuscode || '';
-            let income = 0;
-            let cost = 0;
-            
-            if (status === 'התקיימה' || status === '4') {
-              income = parseFloat(meeting.pcfsystemfield559 || 0);
-              cost = parseFloat(meeting.pcfsystemfield545 || 0);
-              completedCount++;
-            } else {
-              income = parseFloat(meeting.calculatedIncome || 0);
-              cost = parseFloat(meeting.calculatedCost || 0);
-              noStatusCount++;
-            }
-            
-            totalIncome += income;
-            totalCost += cost;
+              const status = meeting.statuscode || '';
+              const meetingType = meeting.pcfsystemfield566;  // 1=שיעור, 2=סדנה/כנס
+              let income = 0;
+              let cost = 0;
+              const isEvent = (meetingType === 'כנס/סדנה');
+
+
+              if (status === 'התקיימה' || status === '4') {
+                income = isEvent
+                  ? parseFloat(meeting.pcfsystemfield560 || 0) // רווח = הכנסה לסדנה/כנס
+                  : parseFloat(meeting.pcfsystemfield559 || 0); // הכנסה רגילה
+                cost = parseFloat(meeting.pcfsystemfield545 || 0);
+                completedCount++;
+              } else {
+                income = parseFloat(meeting.calculatedIncome || 0);
+                cost = parseFloat(meeting.calculatedCost || 0);
+                noStatusCount++;
+              }
+
+              totalIncome += income;
+              totalCost += cost;
           });
+
           
           // Display summary
           html += `<p style='color: #e6e6e6;'><strong>סה"כ ${meetings.length} פגישות:</strong></p>`;
@@ -1796,32 +1906,34 @@
           html += "</tr>";
           
           meetings.forEach((meeting, index) => {
-            console.log("Processing meeting:", meeting);
-            const meetingDate = meeting.scheduledend ? meeting.scheduledend.split('T')[0] : 'N/A';
-            const meetingTime = meeting.scheduledend ? meeting.scheduledend.split('T')[1].substring(0, 5) : 'N/A';
+            
+            const meetingDate = meeting.scheduledstart ? meeting.scheduledstart.split('T')[0] : 'N/A';
+            const meetingTime = meeting.scheduledstart ? meeting.scheduledstart.split('T')[1].substring(0, 5) : 'N/A';
+
             const status = meeting.statuscode || 'ללא סטטוס';
             const guideName = meeting.instructorName || 'לא צוין';
-            
-            // Calculate income and cost based on meeting status
+            const meetingType = meeting.pcfsystemfield566;
+            const isEvent = (meetingType === 'כנס/סדנה');
+
             let income = 0;
             let cost = 0;
-            
+
             if (status === 'התקיימה' || status === '4') {
-              // For completed meetings - use recorded values
-              income = parseFloat(meeting.pcfsystemfield559 || 0);
+              income = isEvent
+                ? parseFloat(meeting.pcfsystemfield560 || 0)
+                : parseFloat(meeting.pcfsystemfield559 || 0);
               cost = parseFloat(meeting.pcfsystemfield545 || 0);
             } else {
-              // For future meetings - use calculated values from server
               income = parseFloat(meeting.calculatedIncome || 0);
               cost = parseFloat(meeting.calculatedCost || 0);
             }
-            
+
             const profit = income - cost;
-            
+
             const rowStyle = index % 2 === 0 ? 
               'padding: 12px; text-align: center; border-top: 1px solid rgba(76, 201, 240, 0.1); color: #e6e6e6; font-weight: 300;' : 
               'padding: 12px; text-align: center; border-top: 1px solid rgba(76, 201, 240, 0.1); color: #e6e6e6; font-weight: 300; background: rgba(67, 97, 238, 0.1);';
-            
+
             html += "<tr>";
             html += `<td style='${rowStyle}'>${meetingDate}</td>`;
             html += `<td style='${rowStyle}'>${meetingTime}</td>`;
@@ -1832,6 +1944,7 @@
             html += `<td style='${rowStyle}'>₪${profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>`;
             html += "</tr>";
           });
+
           
           html += "</table>";
         }
@@ -1961,6 +2074,172 @@
         // No longer needed
         console.log("No popup to close");
       }
+
+      function showInstitutionalOrders() {
+    disableForecastButtons();
+    document.getElementById("loadingSpinner").style.display = "block";
+    document.getElementById("institutionalOrdersResults").innerHTML = "";
+    
+    google.script.run
+      .withSuccessHandler(function(response) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        
+        if (!response || !response.success) {
+          document.getElementById("institutionalOrdersResults").innerHTML = 
+            "<div style='color: #ff6b6b;'>" + (response.message || "שגיאה בשליפת הזמנות מוסדיות") + "</div>";
+          return;
+        }
+        
+        institutionalOrdersData = response;
+        document.getElementById("institutionalOrdersResults").innerHTML = response.html;
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        showNotification("שגיאה: " + err.toString());
+      })
+      .getInstitutionalOrdersInTrackingAndCollection();
+  }
+
+  // הצגת כל ההזמנות המוסדיות
+  function showAllInstitutionalOrders() {
+    disableForecastButtons();
+    document.getElementById("loadingSpinner").style.display = "block";
+    document.getElementById("institutionalOrdersResults").innerHTML = "";
+    
+    google.script.run
+      .withSuccessHandler(function(response) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        
+        if (!response || !response.success) {
+          document.getElementById("institutionalOrdersResults").innerHTML = 
+            "<div style='color: #ff6b6b;'>" + (response.message || "שגיאה בשליפת הזמנות מוסדיות") + "</div>";
+          return;
+        }
+        
+        institutionalOrdersData = response;
+        document.getElementById("institutionalOrdersResults").innerHTML = response.html;
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        showNotification("שגיאה: " + err.toString());
+      })
+      .showInstitutionalOrdersReport();
+  }
+
+  // ייצוא דוח הזמנות מוסדיות
+  function exportInstitutionalOrders() {
+    if (!institutionalOrdersData) {
+      showNotification("אין נתונים לייצוא. אנא הצג תחילה הזמנות מוסדיות.");
+      return;
+    }
+    
+    disableForecastButtons();
+    google.script.run
+      .withSuccessHandler(function(url) {
+        enableForecastButtons();
+        showNotification('דוח הזמנות מוסדיות נוצר בהצלחה! לחץ <a href="' + url + '" target="_blank" style="color:#ff9800; text-decoration:underline;">כאן</a> לגישה לדוח.');
+      })
+      .withFailureHandler(function(err) {
+        enableForecastButtons();
+        showNotification("שגיאה בייצוא דוח הזמנות מוסדיות: " + err.toString());
+      })
+      .exportInstitutionalOrdersToSheet(institutionalOrdersData, "דוח הזמנות מוסדיות");
+  }
+
+  // חיפוש הזמנות מוסדיות
+  function searchInstitutionalOrders() {
+    var searchParams = {
+      name: document.getElementById("searchOrderName").value.trim(),
+      status: document.getElementById("searchOrderStatus").value,
+      orderType: document.getElementById("searchOrderType").value.trim(),
+      executor: document.getElementById("searchOrderExecutor").value.trim(),
+      minAmount: document.getElementById("searchMinAmount").value ? parseFloat(document.getElementById("searchMinAmount").value) : null,
+      maxAmount: document.getElementById("searchMaxAmount").value ? parseFloat(document.getElementById("searchMaxAmount").value) : null
+    };
+    
+    // בדיקה אם יש לפחות קריטריון אחד לחיפוש
+    var hasSearchCriteria = Object.values(searchParams).some(value => value !== null && value !== "");
+    
+    if (!hasSearchCriteria) {
+      showNotification("אנא הזן לפחות קריטריון חיפוש אחד.");
+      return;
+    }
+    
+    disableForecastButtons();
+    document.getElementById("loadingSpinner").style.display = "block";
+    document.getElementById("institutionalOrdersResults").innerHTML = "";
+    
+    google.script.run
+      .withSuccessHandler(function(orders) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        
+        if (!orders || orders.length === 0) {
+          document.getElementById("institutionalOrdersResults").innerHTML = 
+            "<div style='color: #ff9800;'>לא נמצאו הזמנות התואמות לקריטריוני החיפוש.</div>";
+          return;
+        }
+        
+        // יצירת HTML לתצוגת תוצאות החיפוש
+        var html = "<h3>תוצאות חיפוש הזמנות מוסדיות</h3>";
+        html += "<h4>נמצאו " + orders.length + " הזמנות</h4>";
+        html += "<table border='1' style='border-collapse: collapse; width: 100%;'>";
+        html += "<tr><th>שם ההזמנה</th><th>סניף</th><th>סטטוס</th><th>סוג הזמנה</th><th>סכום</th><th>מבצע</th><th>תאריך יצירה</th></tr>";
+        
+        var totalAmount = 0;
+        for (var i = 0; i < orders.length; i++) {
+          var order = orders[i];
+          var amount = parseFloat(order.pcfsystemfield192 || 0);
+          totalAmount += amount;
+          
+          var createDate = order.pcfsystemfield176 ? new Date(order.pcfsystemfield176).toLocaleDateString('he-IL') : "לא צויין";
+          
+          html += "<tr>";
+          html += "<td>" + (order.name || "לא צויין") + "</td>";
+          html += "<td>" + (order.branchName || "לא צויין") + "</td>";
+          html += "<td>" + (order.pcfsystemfield182 || "לא צויין") + "</td>";
+          html += "<td>" + (order.pcfsystemfield187 || "לא צויין") + "</td>";
+          html += "<td>" + amount.toFixed(2) + " ₪</td>";
+          html += "<td>" + (order.pcfsystemfield183 || "לא צויין") + "</td>";
+          html += "<td>" + createDate + "</td>";
+          html += "</tr>";
+        }
+        html += "</table>";
+        html += "<br><strong>סה״כ סכום: " + totalAmount.toFixed(2) + " ₪</strong>";
+        
+        // שמירת הנתונים לייצוא
+        institutionalOrdersData = {
+          success: true,
+          html: html,
+          orders: orders,
+          data: { totalOrders: orders.length, totalAmount: totalAmount }
+        };
+        
+        document.getElementById("institutionalOrdersResults").innerHTML = html;
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById("loadingSpinner").style.display = "none";
+        enableForecastButtons();
+        showNotification("שגיאה בחיפוש: " + err.toString());
+      })
+      .searchInstitutionalOrders(searchParams);
+  }
+
+  // ניקוי שדות החיפוש
+  function clearOrderSearch() {
+    document.getElementById("searchOrderName").value = "";
+    document.getElementById("searchOrderStatus").value = "";
+    document.getElementById("searchOrderType").value = "";
+    document.getElementById("searchOrderExecutor").value = "";
+    document.getElementById("searchMinAmount").value = "";
+    document.getElementById("searchMaxAmount").value = "";
+    document.getElementById("institutionalOrdersResults").innerHTML = "";
+    institutionalOrdersData = null;
+  }
 
     </script>
     <!-- Simple chat implementation with direct button -->
